@@ -130,6 +130,9 @@ export async function runModalImplementation(
       git_user_email: job.gitUserEmail,
       claude_oauth_token: job.claudeOauthToken,
       model: job.model,
+      anthropic_api_key: job.anthropicApiKey,
+      openai_api_key: job.openaiApiKey,
+      openrouter_api_key: job.openrouterApiKey,
     }),
   });
 

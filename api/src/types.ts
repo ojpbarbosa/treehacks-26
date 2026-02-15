@@ -49,6 +49,10 @@ export interface ImplementationJob {
   claudeOauthToken?: string;
   /** Claude model to use (e.g. "sonnet", "opus"). Omit for default. */
   model?: string;
+  /** API keys passed through to sandbox environment */
+  anthropicApiKey?: string;
+  openaiApiKey?: string;
+  openrouterApiKey?: string;
 }
 
 // ─── Unified WebSocket event types ───────────────────────────────

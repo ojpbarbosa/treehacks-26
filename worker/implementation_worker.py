@@ -264,6 +264,9 @@ def run_in_sandbox(
     git_user_email: str | None,
     claude_oauth_token: str | None,
     model: str | None,
+    anthropic_api_key: str | None,
+    openai_api_key: str | None,
+    openrouter_api_key: str | None,
 ) -> None:
     """Create a Sandbox and run the agent."""
     job_secret = modal.Secret.from_dict({
@@ -277,6 +280,9 @@ def run_in_sandbox(
         "GIT_USER_NAME": git_user_name or "",
         "GIT_USER_EMAIL": git_user_email or "",
         "CLAUDE_CODE_OAUTH_TOKEN": claude_oauth_token or "",
+        "ANTHROPIC_API_KEY": anthropic_api_key or "",
+        "OPENAI_API_KEY": openai_api_key or "",
+        "OPENROUTER_API_KEY": openrouter_api_key or "",
     })
 
     _log("creating Sandbox job_id=%s branch=%s" % (job_id, branch))
@@ -401,5 +407,8 @@ async def trigger(request: Request):
         git_user_email=body.get("git_user_email"),
         claude_oauth_token=body.get("claude_oauth_token"),
         model=body.get("model"),
+        anthropic_api_key=body.get("anthropic_api_key"),
+        openai_api_key=body.get("openai_api_key"),
+        openrouter_api_key=body.get("openrouter_api_key"),
     )
     return {"ok": True, "message": "implementation spawned"}
