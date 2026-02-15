@@ -81,10 +81,7 @@ export async function runTask(
                 repo: repoName,
                 ref: branch,
               });
-              const url = deploy.url || `https://${deploy.deploymentId}.vercel.app`;
 
-              log.vercel("Deployment endpoint for " + jobId + " (branch " + branch + "): " + url);
-              obs.broadcast({ type: "JOB_DEPLOYMENT", payload: { taskId, jobId, url } });
               await disableDeploymentProtection(repoName).catch((e) =>
                 log.warn("Could not disable deployment protection: " + String(e))
               );

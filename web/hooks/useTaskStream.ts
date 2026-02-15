@@ -64,7 +64,7 @@ export interface Job {
   pushes: JobPush[]
   errors: JobError[]
   deploymentUrl?: string
-  status: 'building' | 'deployed' | 'failed'
+  status: 'pending' | 'building' | 'deployed' | 'failed'
   success?: boolean
   pitch?: string
 }
@@ -128,32 +128,113 @@ type WsEvent =
 // ─── Hook ───────────────────────────────────────────────────────
 
 export interface UseTaskStreamReturn {
-  /** Current phase of the task lifecycle */
   phase: TaskPhase
-  /** The taskId returned by the API */
   taskId: string | null
-  /** Ideas from ideation */
+  taskDescription: string
   ideas: IdeationIdea[]
-  /** All jobs being tracked */
   jobs: Job[]
-  /** Final results once all jobs are done */
   allDonePayload: { evaluator: EvaluatorSpec | null; builds: DeploymentResult[] } | null
-  /** Any top-level error message */
   error: string | null
-  /** Create a new task — kicks off the pipeline */
   createTask: (input: TaskInput) => Promise<void>
-  /** Reset everything */
   reset: () => void
 }
 
 export function useTaskStream(): UseTaskStreamReturn {
   const [phase, setPhase] = useState<TaskPhase>('idle')
   const [taskId, setTaskId] = useState<string | null>(null)
+  const [taskDescription, setTaskDescription] = useState('')
   const [ideas, setIdeas] = useState<IdeationIdea[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
   const [allDonePayload, setAllDonePayload] = useState<UseTaskStreamReturn['allDonePayload']>(null)
   const [error, setError] = useState<string | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+
+  /**
+   * Buffer for events that arrive before their JOB_STARTED.
+   * JOB_DEPLOYMENT can be sent from the orchestrator before the worker
+   * even starts, so we hold them until the job exists.
+   */
+  const earlyEventsRef = useRef<Map<string, WsEvent[]>>(new Map())
+
+  // ── Apply a single event to the jobs state ──────────────────
+  function applyEvent(msg: WsEvent) {
+    switch (msg.type) {
+      case 'IDEATION_DONE': {
+        setIdeas(msg.payload.ideas)
+        setPhase('ideation')
+        break
+      }
+
+      case 'JOB_STARTED': {
+        const p = msg.payload
+        setJobs(prev => {
+          if (prev.find(j => j.jobId === p.jobId)) return prev
+
+          const newJob: Job = {
+            jobId: p.jobId,
+            taskId: p.taskId,
+            idea: p.idea,
+            temperature: p.temperature,
+            risk: p.risk,
+            branch: p.branch,
+            totalSteps: p.totalSteps,
+            planSteps: p.planSteps,
+            currentStep: 0,
+            steps: [],
+            pushes: [],
+            errors: [],
+            status: 'building',
+          }
+
+          // Replay any buffered events for this job
+          const buffered = earlyEventsRef.current.get(p.jobId)
+          if (buffered) {
+            earlyEventsRef.current.delete(p.jobId)
+            let patched = newJob
+            for (const ev of buffered) {
+              patched = applyJobEvent(patched, ev)
+            }
+            return [...prev, patched]
+          }
+
+          return [...prev, newJob]
+        })
+        setPhase('building')
+        break
+      }
+
+      case 'JOB_STEP_LOG':
+      case 'JOB_PUSH':
+      case 'JOB_ERROR':
+      case 'JOB_DEPLOYMENT':
+      case 'JOB_DONE': {
+        const jobId = msg.payload.jobId
+        setJobs(prev => {
+          const idx = prev.findIndex(j => j.jobId === jobId)
+          if (idx === -1) {
+            // Job doesn't exist yet → buffer
+            const buf = earlyEventsRef.current.get(jobId) ?? []
+            buf.push(msg)
+            earlyEventsRef.current.set(jobId, buf)
+            return prev
+          }
+          const updated = [...prev]
+          updated[idx] = applyJobEvent(prev[idx]!, msg)
+          return updated
+        })
+        break
+      }
+
+      case 'ALL_DONE': {
+        setAllDonePayload({
+          evaluator: msg.payload.evaluator,
+          builds: msg.payload.builds,
+        })
+        setPhase('done')
+        break
+      }
+    }
+  }
 
   // ── WebSocket connection ────────────────────────────────────
   useEffect(() => {
@@ -167,108 +248,10 @@ export function useTaskStream(): UseTaskStreamReturn {
       let msg: WsEvent
       try {
         msg = JSON.parse(e.data) as WsEvent
-        console.log('WS event:', msg)
       } catch {
-        console.error('Failed to parse WS event:', e.data)
         return
       }
-
-      switch (msg.type) {
-        case 'IDEATION_DONE': {
-          setIdeas(msg.payload.ideas)
-          setPhase('ideation')
-          break
-        }
-
-        case 'JOB_STARTED': {
-          const p = msg.payload
-          setJobs(prev => {
-            // Deduplicate
-            if (prev.find(j => j.jobId === p.jobId)) return prev
-            return [...prev, {
-              jobId: p.jobId,
-              taskId: p.taskId,
-              idea: p.idea,
-              temperature: p.temperature,
-              risk: p.risk,
-              branch: p.branch,
-              totalSteps: p.totalSteps,
-              planSteps: p.planSteps,
-              currentStep: 0,
-              steps: [],
-              pushes: [],
-              errors: [],
-              status: 'building',
-            }]
-          })
-          setPhase('building')
-          break
-        }
-
-        case 'JOB_STEP_LOG': {
-          const p = msg.payload
-          setJobs(prev => prev.map(j => {
-            if (j.jobId !== p.jobId) return j
-            const step: JobStep = { stepIndex: p.stepIndex, summary: p.summary, done: p.done }
-            const steps = [...j.steps.filter(s => s.stepIndex !== p.stepIndex), step]
-            return { ...j, steps, currentStep: Math.max(j.currentStep, p.stepIndex + 1) }
-          }))
-          break
-        }
-
-        case 'JOB_PUSH': {
-          const p = msg.payload
-          setJobs(prev => prev.map(j => {
-            if (j.jobId !== p.jobId) return j
-            return { ...j, pushes: [...j.pushes, { stepIndex: p.stepIndex, branch: p.branch, summary: p.summary }] }
-          }))
-          break
-        }
-
-        case 'JOB_ERROR': {
-          const p = msg.payload
-          setJobs(prev => prev.map(j => {
-            if (j.jobId !== p.jobId) return j
-            return { ...j, errors: [...j.errors, { error: p.error, stderr: p.stderr, phase: p.phase }] }
-          }))
-          break
-        }
-
-        case 'JOB_DEPLOYMENT': {
-          const p = msg.payload
-          if (phase == 'ideation') {
-            setPhase('building')
-          }
-          setJobs(prev => prev.map(j => {
-            if (j.jobId !== p.jobId) return j
-            return { ...j, deploymentUrl: p.url }
-          }))
-          break
-        }
-
-        case 'JOB_DONE': {
-          const p = msg.payload
-          setJobs(prev => prev.map(j => {
-            if (j.jobId !== p.jobId) return j
-            return {
-              ...j,
-              status: p.success ? 'deployed' : 'failed',
-              success: p.success,
-              pitch: p.pitch,
-            }
-          }))
-          break
-        }
-
-        case 'ALL_DONE': {
-          setAllDonePayload({
-            evaluator: msg.payload.evaluator,
-            builds: msg.payload.builds,
-          })
-          setPhase('done')
-          break
-        }
-      }
+      applyEvent(msg)
     }
 
     ws.onerror = () => {
@@ -283,6 +266,7 @@ export function useTaskStream(): UseTaskStreamReturn {
       ws.close()
       wsRef.current = null
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId])
 
   // ── Create task ─────────────────────────────────────────────
@@ -292,6 +276,8 @@ export function useTaskStream(): UseTaskStreamReturn {
     setIdeas([])
     setJobs([])
     setAllDonePayload(null)
+    setTaskDescription(input.taskDescription)
+    earlyEventsRef.current.clear()
 
     try {
       const res = await fetch(API_URL + '/v1.0/task', {
@@ -306,7 +292,6 @@ export function useTaskStream(): UseTaskStreamReturn {
         return
       }
       setTaskId(data.taskId)
-      // Phase will transition to 'ideation' or 'building' when WS events arrive
     } catch (e) {
       setError('Network error: ' + String(e))
       setPhase('error')
@@ -318,11 +303,48 @@ export function useTaskStream(): UseTaskStreamReturn {
     wsRef.current?.close()
     setPhase('idle')
     setTaskId(null)
+    setTaskDescription('')
     setIdeas([])
     setJobs([])
     setAllDonePayload(null)
     setError(null)
+    earlyEventsRef.current.clear()
   }, [])
 
-  return { phase, taskId, ideas, jobs, allDonePayload, error, createTask, reset }
+  return { phase, taskId, taskDescription, ideas, jobs, allDonePayload, error, createTask, reset }
+}
+
+// ─── Pure job update helper ─────────────────────────────────────
+
+function applyJobEvent(job: Job, msg: WsEvent): Job {
+  switch (msg.type) {
+    case 'JOB_STEP_LOG': {
+      const p = msg.payload
+      const step: JobStep = { stepIndex: p.stepIndex, summary: p.summary, done: p.done }
+      const steps = [...job.steps.filter(s => s.stepIndex !== p.stepIndex), step]
+      return { ...job, steps, currentStep: Math.max(job.currentStep, p.stepIndex + 1) }
+    }
+    case 'JOB_PUSH': {
+      const p = msg.payload
+      return { ...job, pushes: [...job.pushes, { stepIndex: p.stepIndex, branch: p.branch, summary: p.summary }] }
+    }
+    case 'JOB_ERROR': {
+      const p = msg.payload
+      return { ...job, errors: [...job.errors, { error: p.error, stderr: p.stderr, phase: p.phase }] }
+    }
+    case 'JOB_DEPLOYMENT': {
+      return { ...job, deploymentUrl: msg.payload.url }
+    }
+    case 'JOB_DONE': {
+      const p = msg.payload
+      return {
+        ...job,
+        status: p.success ? 'deployed' : 'failed',
+        success: p.success,
+        pitch: p.pitch,
+      }
+    }
+    default:
+      return job
+  }
 }
