@@ -25,12 +25,11 @@ function generateId(): string {
  * Resolves as soon as all workers have been spawned — results arrive via webhooks.
  */
 export async function runTask(
+  taskId: string,
   input: TaskInput,
   obs: ObservabilityHandlers,
   state: ServerState | null = null,
 ): Promise<{ success: boolean; taskId: string }> {
-  const taskId = generateId();
-
   log.treemux("[task:" + taskId + "] Task: " + input.taskDescription);
   log.treemux("[task:" + taskId + "] Workers: " + input.workers);
   log.treemux("[task:" + taskId + "] Callback base: " + CALLBACK_BASE_URL);

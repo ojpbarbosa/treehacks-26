@@ -24,6 +24,7 @@ function generateId(): string {
  * Resolves as soon as all workers have been spawned — results arrive via webhooks.
  */
 export async function runTask(
+  taskId: string,
   input: TaskInput,
   obs: ObservabilityHandlers | null = null,
 ): Promise<{ success: boolean }> {
@@ -109,6 +110,7 @@ export async function runTask(
       gitUserEmail: process.env.GIT_USER_EMAIL,
       claudeOauthToken: process.env.CLAUDE_CODE_OAUTH_TOKEN,
       model: input.model,
+      taskId: taskId,
     });
   }
 
@@ -126,7 +128,9 @@ export async function runTask(
 }
 
 async function main() {
-  const result = await runTask(MOCK_INPUT);
+  const taskId = generateId();
+  const result = await runTask(taskId, MOCK_INPUT);
+  console.log("Task ID: " + taskId);
   console.log(result);
 }
 

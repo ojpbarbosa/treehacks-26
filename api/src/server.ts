@@ -10,6 +10,7 @@ import { getObservabilityHandlers } from "./observability.ts";
 import { EVALUATOR_WEBHOOK_URL } from "./config.ts";
 import { runTask } from "./task.ts";
 import { log } from "./logger.ts";
+import { customAlphabet } from "nanoid";
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 
@@ -56,9 +57,10 @@ async function handleTask(req: Request): Promise<Response> {
       headers: { "Content-Type": "application/json" },
     });
   }
-  const result = await runTask(body, obs, state);
-  return new Response(JSON.stringify(result), {
-    status: result.success ? 200 : 500,
+  const taskId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 21)();
+  runTask(taskId, body, obs, state)
+  return new Response(JSON.stringify({ taskId }), {
+    status: 200,
     headers: { "Content-Type": "application/json" },
   });
 }
