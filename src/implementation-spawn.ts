@@ -7,7 +7,7 @@ import type { ImplementationJob } from "./types.ts";
 import { getObservabilityHandlers } from "./observability.ts";
 import { log } from "./logger.ts";
 
-const CALLBACK_BASE = process.env.CALLBACK_BASE_URL ?? "http://localhost:3001";
+const CALLBACK_BASE = process.env.CALLBACK_BASE_URL ?? "http://localhost:3000";
 
 async function postStep(jobId: string, step: string, stepIndex: number, done: boolean) {
   const url = `${CALLBACK_BASE}/api/internal//step`;

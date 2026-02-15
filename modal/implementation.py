@@ -1,15 +1,19 @@
 """
 Epoch implementation – single file. Trigger endpoint + Sandbox that runs inlined runner via stdin.
+Uses templates/nextjs-base in the image so the sandbox starts from a ready Next.js app (saves time/tokens).
 """
 
 import json
-import os
 from pathlib import Path
 
 import modal
 from fastapi import Request, Response
 
 app = modal.App("epoch-implementation")
+
+# Repo root (parent of modal/) for adding templates into the image
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_TEMPLATE_DIR = _REPO_ROOT / "templates" / "nextjs-base"
 
 # Inlined runner: JOB_IMPL_STARTED (with plan) + JOB_LOG (step with summary), commit+push per step.
 _RUN_IMPL_SOURCE = r'''
@@ -44,6 +48,14 @@ def main():
     worker_profile = _env("WORKER_PROFILE")
     work_dir = Path("/out")
     work_dir.mkdir(parents=True, exist_ok=True)
+    import shutil
+    if Path("/template").exists():
+        for p in Path("/template").rglob("*"):
+            if p.is_file():
+                rel = p.relative_to("/template")
+                dst = work_dir / rel
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(p, dst)
     os.chdir(work_dir)
     base = callback_base_url.rstrip("/") if callback_base_url else ""
     if not base or not (base.startswith("http://") or base.startswith("https://")):
@@ -87,8 +99,8 @@ def main():
         commit_and_push(step_index, message)
     import anyio
     from claude_agent_sdk import ClaudeAgentOptions, query, AssistantMessage, TextBlock, ResultMessage
-    system_prompt = "You are an expert developer. Implement this as a Next.js app in the current directory. First output a short numbered plan (exactly one line per step, e.g. 1. Step one 2. Step two), then execute each step. Use only Read, Write, Edit, Bash, Glob. Create app with: npx create-next-app@latest . --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --use-npm. Idea: %s. Worker profile: %s. Risk: %s, Temperature: %s. Keep minimal but functional. For each step, start with a single short line describing the step (e.g. 'Creating app scaffold' or 'Adding homepage'), then do the work." % (idea, worker_profile, risk, temperature)
-    prompt = "Implement this idea as a Next.js app in the current directory: %s\n\nFirst output your numbered plan (one line per step), then execute each step." % idea
+    system_prompt = "You are an expert developer. The current directory already contains a Next.js app (App Router, TypeScript, Tailwind). Do NOT run npx create-next-app or npm create. Just implement the idea by editing and adding files. First output a short numbered plan (exactly one line per step, e.g. 1. Step one 2. Step two), then execute each step. Use only Read, Write, Edit, Bash, Glob. Idea: %s. Worker profile: %s. Risk: %s, Temperature: %s. Keep minimal but functional. For each step, start with a single short line describing the step, then do the work." % (idea, worker_profile, risk, temperature)
+    prompt = "Implement this idea in the existing Next.js app in the current directory: %s\n\nFirst output your numbered plan (one line per step), then execute each step. Do not run create-next-app." % idea
     step_index = [0]
     async def run_agent():
         async for message in query(prompt=prompt, options=ClaudeAgentOptions(system_prompt=system_prompt, allowed_tools=["Read", "Write", "Edit", "Bash", "Glob"], permission_mode="acceptEdits")):
@@ -143,6 +155,7 @@ _image = (
         "apt-get install -y nodejs",
     )
     .pip_install("claude-agent-sdk", "httpx", "anyio", "fastapi[standard]")
+    .add_local_dir(str(_TEMPLATE_DIR), remote_path="/template", copy=True)
 )
 
 
