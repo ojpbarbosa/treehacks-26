@@ -2,6 +2,7 @@ import type {
   Config,
   Project,
   JudgingPlan,
+  JudgeSpec,
   EvaluationResults,
   ProgressEvent,
   ModelConfig,
@@ -36,6 +37,13 @@ export function createEvaluator(evaluatorConfig: EvaluatorConfig) {
   const models = ModelConfigSchema.parse(evaluatorConfig.models ?? {});
 
   return {
+    async research(
+      judges: CustomJudgeInput[],
+      onProgress?: (name: string, message: string) => void,
+    ): Promise<JudgeSpec[]> {
+      return researchAll(judges, models, onProgress);
+    },
+
     async plan(): Promise<JudgingPlan> {
       const contextDocument = evaluatorConfig.context.endsWith(".md")
         ? await loadContext(evaluatorConfig.context)

@@ -1,0 +1,390 @@
+<mxfile host="app.diagrams.net" modified="2026-02-15T00:00:00.000Z" agent="Claude" version="24.0.0" type="device">
+  <diagram id="arch" name="System Architecture">
+    <mxGraphModel dx="2074" dy="1236" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1800" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- TITLE -->
+        <mxCell id="2" value="TreeHacks26 — AI-Powered Evaluation System" style="text;html=1;fontSize=22;fontStyle=1;align=center;verticalAlign=middle;fontColor=#1a1a2e;" parent="1" vertex="1">
+          <mxGeometry x="500" y="20" width="600" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- ========== INPUTS ========== -->
+        <mxCell id="10" value="Config JSON&#xa;&#xa;models, concurrency&#xa;outlier thresholds&#xa;judge weights&#xa;delivery webhook" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;" parent="1" vertex="1">
+          <mxGeometry x="80" y="90" width="150" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="11" value="Context Document&#xa;&#xa;hackathon_spec.md&#xa;tracks, criteria&#xa;judging priorities" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;" parent="1" vertex="1">
+          <mxGeometry x="260" y="90" width="150" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="12" value="Projects CSV&#xa;&#xa;name&#xa;url (demo link)&#xa;pitch (text)" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;" parent="1" vertex="1">
+          <mxGeometry x="440" y="90" width="150" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="13" value="Custom Judges&#xa;(optional)&#xa;&#xa;name, context&#xa;needsBrowser" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;" parent="1" vertex="1">
+          <mxGeometry x="620" y="90" width="150" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="14" value="INPUTS" style="text;html=1;fontSize=13;fontStyle=1;fontColor=#6c8ebf;align=left;" parent="1" vertex="1">
+          <mxGeometry x="80" y="65" width="100" height="25" as="geometry"/>
+        </mxCell>
+
+        <!-- ========== ENTRY POINTS ========== -->
+        <mxCell id="20" value="CLI&#xa;cli.ts&#xa;&#xa;--config, --local&#xa;--dry-run, --resume&#xa;-p &lt;project&gt;" style="rounded=1;whiteSpace=wrap;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=center;" parent="1" vertex="1">
+          <mxGeometry x="240" y="250" width="150" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="21" value="Programmatic API&#xa;api.ts / index.ts&#xa;&#xa;createEvaluator()&#xa;plan() / evaluate()&#xa;evaluateOne()" style="rounded=1;whiteSpace=wrap;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=center;" parent="1" vertex="1">
+          <mxGeometry x="440" y="250" width="160" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="22" value="ENTRY POINTS" style="text;html=1;fontSize=13;fontStyle=1;fontColor=#9673a6;align=left;" parent="1" vertex="1">
+          <mxGeometry x="240" y="225" width="150" height="25" as="geometry"/>
+        </mxCell>
+
+        <!-- Inputs to Entry Points -->
+        <mxCell id="30" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#999999;entryX=0.5;entryY=0;exitX=0.5;exitY=1;" parent="1" source="10" target="20" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="31" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#999999;entryX=0.5;entryY=0;exitX=0.5;exitY=1;" parent="1" source="12" target="21" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ========== EXECUTION MODE ========== -->
+        <mxCell id="40" value="Execution&#xa;Mode?" style="rhombus;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="350" y="410" width="130" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="41" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666666;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="20" target="40" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="42" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666666;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="21" target="40" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Local Orchestrator -->
+        <mxCell id="50" value="Local Orchestrator&#xa;orchestrator.ts&#xa;In-process execution" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;align=center;" parent="1" vertex="1">
+          <mxGeometry x="100" y="420" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="51" value="--local" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontColor=#82b366;fontSize=10;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" parent="1" source="40" target="50" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Modal Orchestrator -->
+        <mxCell id="55" value="Modal Orchestrator&#xa;orchestrator-modal.ts&#xa;Distributed sandboxes" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;align=center;" parent="1" vertex="1">
+          <mxGeometry x="550" y="420" width="190" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="56" value="default" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontColor=#b85450;fontSize=10;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="40" target="55" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ========== MODAL INFRASTRUCTURE ========== -->
+        <mxCell id="60" value="MODAL INFRASTRUCTURE" style="text;html=1;fontSize=11;fontStyle=1;fontColor=#b85450;align=left;" parent="1" vertex="1">
+          <mxGeometry x="820" y="380" width="200" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="61" value="ModalDispatcher&#xa;client.ts&#xa;Spawn sandboxes" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="820" y="400" width="120" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="62" value="WebhookServer&#xa;webhook-server.ts&#xa;HMAC-secured" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="960" y="400" width="120" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="63" value="Volumes&#xa;eval-agent-code&#xa;eval-run-{id}&#xa;eval-agent-cache" style="shape=cylinder3;whiteSpace=wrap;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="820" y="470" width="120" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="64" value="Semaphore&#xa;semaphore.ts&#xa;Concurrency control" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="960" y="480" width="120" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="65" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="55" target="61" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ========== PHASE 1: PLANNING ========== -->
+        <mxCell id="100" value="PHASE 1: PLANNING" style="text;html=1;fontSize=14;fontStyle=1;fontColor=#d6b656;align=left;" parent="1" vertex="1">
+          <mxGeometry x="80" y="540" width="200" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="101" value="Planner Agent&#xa;planner.ts&#xa;&#xa;Reads context doc&#xa;Generates JudgingPlan&#xa;(2-5 auto judges)" style="rounded=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;" parent="1" vertex="1">
+          <mxGeometry x="80" y="570" width="170" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="102" value="Research Agent&#xa;research.ts&#xa;&#xa;Web search per persona&#xa;Builds system prompts&#xa;(custom judges)" style="rounded=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;" parent="1" vertex="1">
+          <mxGeometry x="280" y="570" width="170" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="103" value="JudgingPlan&#xa;&#xa;scenario&#xa;judges[]&#xa;scaleGuidance&#xa;reportConfig" style="shape=note;whiteSpace=wrap;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="490" y="575" width="130" height="90" as="geometry"/>
+        </mxCell>
+
+        <!-- Planning arrows -->
+        <mxCell id="104" style="rounded=1;strokeColor=#d6b656;exitX=1;exitY=0.5;entryX=0;entryY=0.3;" parent="1" source="101" target="103" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="105" style="rounded=1;strokeColor=#d6b656;exitX=1;exitY=0.5;entryX=0;entryY=0.7;" parent="1" source="102" target="103" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Orchestrators to Phase 1 -->
+        <mxCell id="106" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666666;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="50" target="101" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ========== PHASE 2: EVALUATION ========== -->
+        <mxCell id="200" value="PHASE 2: EVALUATION (per project)" style="text;html=1;fontSize=14;fontStyle=1;fontColor=#82b366;align=left;" parent="1" vertex="1">
+          <mxGeometry x="80" y="710" width="300" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="201" value="Text Judges&#xa;judge.ts&#xa;&#xa;Evaluate from pitch text&#xa;Promise.all() parallel" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;" parent="1" vertex="1">
+          <mxGeometry x="80" y="740" width="170" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="202" value="Browser Judges&#xa;judge.ts + stagehand.ts&#xa;&#xa;Visit demo URL&#xa;Batched concurrency" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;" parent="1" vertex="1">
+          <mxGeometry x="280" y="740" width="170" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="203" value="JudgeResult[]&#xa;&#xa;scores (1-10 per category)&#xa;feedback (strengths,&#xa;weaknesses, suggestions)&#xa;feedbackSignal&#xa;screenshots" style="shape=note;whiteSpace=wrap;backgroundOutline=1;size=15;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="490" y="730" width="150" height="110" as="geometry"/>
+        </mxCell>
+
+        <!-- Eval arrows -->
+        <mxCell id="204" style="rounded=1;strokeColor=#82b366;exitX=1;exitY=0.5;entryX=0;entryY=0.3;" parent="1" source="201" target="203" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="205" style="rounded=1;strokeColor=#82b366;exitX=1;exitY=0.5;entryX=0;entryY=0.7;" parent="1" source="202" target="203" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Phase 1 to Phase 2 -->
+        <mxCell id="206" value="JudgingPlan + JudgeSpecs" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666666;strokeWidth=2;fontSize=10;fontColor=#666666;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="103" target="203" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Judge Prompt callout -->
+        <mxCell id="210" value="Judge Prompt Includes:&#xa;- Project Name&#xa;- Demo URL&#xa;- Pitch Text&#xa;- Context Document&#xa;- Scoring Categories&#xa;- Scale Guidance (1-10)" style="shape=note;whiteSpace=wrap;size=15;fillColor=#f5f5f5;strokeColor=#82b366;fontSize=9;align=left;spacingLeft=8;" parent="1" vertex="1">
+          <mxGeometry x="80" y="850" width="170" height="110" as="geometry"/>
+        </mxCell>
+
+        <!-- Checkpoint -->
+        <mxCell id="211" value="Checkpoint&#xa;{project}.json" style="shape=cylinder3;whiteSpace=wrap;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="515" y="855" width="100" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="212" style="rounded=1;strokeColor=#82b366;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="203" target="211" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ========== PHASE 3: SCORING ========== -->
+        <mxCell id="300" value="PHASE 3: SCORING &amp; ANALYSIS" style="text;html=1;fontSize=14;fontStyle=1;fontColor=#9673a6;align=left;" parent="1" vertex="1">
+          <mxGeometry x="80" y="960" width="300" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="301" value="Compute&#xa;compute.ts&#xa;&#xa;Weighted avg of&#xa;category scores&#xa;= overallScore" style="rounded=1;whiteSpace=wrap;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="80" y="990" width="130" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="302" value="Normalize&#xa;normalize.ts&#xa;&#xa;Z-score:&#xa;5.5 + z*1.5&#xa;clamped [1, 10]" style="rounded=1;whiteSpace=wrap;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="240" y="990" width="130" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="303" value="Outlier Detection&#xa;outliers.ts&#xa;&#xa;Global (sigma threshold)&#xa;Dimensional (z-score)&#xa;Unique (cosine sim)" style="rounded=1;whiteSpace=wrap;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="400" y="990" width="140" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="304" value="ProjectScores[]&#xa;+&#xa;OutlierAnalysis" style="shape=note;whiteSpace=wrap;backgroundOutline=1;size=15;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="570" y="1000" width="110" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- Scoring arrows -->
+        <mxCell id="305" style="rounded=1;strokeColor=#9673a6;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="301" target="302" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="306" style="rounded=1;strokeColor=#9673a6;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="302" target="303" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="307" style="rounded=1;strokeColor=#9673a6;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="303" target="304" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Phase 2 to Phase 3 -->
+        <mxCell id="308" value="JudgeResult[] per project" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666666;strokeWidth=2;fontSize=10;fontColor=#666666;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="211" target="301" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="565" y="930"/>
+              <mxPoint x="145" y="930"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ========== PHASE 4: REPORTING ========== -->
+        <mxCell id="400" value="PHASE 4: REPORTING" style="text;html=1;fontSize=14;fontStyle=1;fontColor=#6c8ebf;align=left;" parent="1" vertex="1">
+          <mxGeometry x="80" y="1120" width="200" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="401" value="Report Writer Agent&#xa;report-writer.ts&#xa;&#xa;Deep markdown report&#xa;per project (Claude)" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;" parent="1" vertex="1">
+          <mxGeometry x="80" y="1150" width="180" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="402" value="Rankings Summary&#xa;report-writer.ts&#xa;&#xa;Ranking table +&#xa;outlier analysis" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;" parent="1" vertex="1">
+          <mxGeometry x="290" y="1150" width="160" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="403" value="reports/*.md&#xa;rankings.md&#xa;results.json" style="shape=note;whiteSpace=wrap;backgroundOutline=1;size=15;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;" parent="1" vertex="1">
+          <mxGeometry x="490" y="1155" width="130" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- Reporting arrows -->
+        <mxCell id="404" style="rounded=1;strokeColor=#6c8ebf;exitX=1;exitY=0.5;entryX=0;entryY=0.3;" parent="1" source="401" target="403" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="405" style="rounded=1;strokeColor=#6c8ebf;exitX=1;exitY=0.5;entryX=0;entryY=0.7;" parent="1" source="402" target="403" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Phase 3 to Phase 4 -->
+        <mxCell id="406" value="ProjectScores[] + OutlierAnalysis" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666666;strokeWidth=2;fontSize=10;fontColor=#666666;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="304" target="401" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="625" y="1100"/>
+              <mxPoint x="170" y="1100"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ========== PHASE 5: DELIVERY ========== -->
+        <mxCell id="500" value="PHASE 5: DELIVERY (Optional)" style="text;html=1;fontSize=14;fontStyle=1;fontColor=#666666;align=left;" parent="1" vertex="1">
+          <mxGeometry x="80" y="1270" width="300" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="501" value="Delivery Webhook&#xa;delivery.ts&#xa;&#xa;POST to external URL&#xa;Payload: runId, rankings, outliers, reports, metadata&#xa;3 retries with exponential backoff" style="rounded=1;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=center;dashed=1;" parent="1" vertex="1">
+          <mxGeometry x="150" y="1300" width="350" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- Phase 4 to Phase 5 -->
+        <mxCell id="502" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666666;strokeWidth=2;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="403" target="501" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="555" y="1260"/>
+              <mxPoint x="325" y="1260"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ========== EXTERNAL SERVICES (Right Column) ========== -->
+        <mxCell id="600" value="EXTERNAL SERVICES" style="text;html=1;fontSize=13;fontStyle=1;fontColor=#d79b00;align=left;" parent="1" vertex="1">
+          <mxGeometry x="820" y="590" width="200" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="601" value="Claude API&#xa;@anthropic-ai/claude-agent-sdk&#xa;&#xa;opus 4.6 → judges, reports&#xa;sonnet 4.5 → planner, research" style="rounded=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="820" y="620" width="200" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="602" value="Stagehand Browser&#xa;@browserbasehq/stagehand&#xa;&#xa;navigateTo, observe&#xa;extract, interact&#xa;takeScreenshot" style="rounded=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="820" y="730" width="200" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="603" value="Web Search / Fetch&#xa;&#xa;Research personas&#xa;Judge web access" style="rounded=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="820" y="840" width="200" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- Phase connections to external services -->
+        <mxCell id="610" style="rounded=1;strokeColor=#d79b00;dashed=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="101" target="601" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="700" y="620"/>
+              <mxPoint x="700" y="665"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="611" style="rounded=1;strokeColor=#d79b00;dashed=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="202" target="602" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="700" y="785"/>
+              <mxPoint x="700" y="775"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="612" style="rounded=1;strokeColor=#d79b00;dashed=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="102" target="603" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="720" y="620"/>
+              <mxPoint x="720" y="875"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ========== KEY DATA TYPES ========== -->
+        <mxCell id="700" value="KEY DATA TYPES" style="text;html=1;fontSize=13;fontStyle=1;fontColor=#333333;align=left;" parent="1" vertex="1">
+          <mxGeometry x="820" y="950" width="200" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="701" value="Project  { name, url?, pitch }" style="rounded=0;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#cccccc;fontSize=10;align=left;spacingLeft=8;" parent="1" vertex="1">
+          <mxGeometry x="820" y="980" width="280" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="702" value="JudgeSpec  { name, role, systemPrompt, scoringCategories[], needsBrowser }" style="rounded=0;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#cccccc;fontSize=9;align=left;spacingLeft=8;" parent="1" vertex="1">
+          <mxGeometry x="820" y="1013" width="280" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="703" value="JudgingPlan  { scenario, scoreScale, scaleGuidance, judges[], reportConfig }" style="rounded=0;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#cccccc;fontSize=9;align=left;spacingLeft=8;" parent="1" vertex="1">
+          <mxGeometry x="820" y="1046" width="280" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="704" value="JudgeResult  { projectName, judgeName, scores[], feedback, feedbackSignal }" style="rounded=0;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#cccccc;fontSize=9;align=left;spacingLeft=8;" parent="1" vertex="1">
+          <mxGeometry x="820" y="1079" width="280" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="705" value="CategoryScore  { category, score (1-10), weight, reasoning }" style="rounded=0;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#cccccc;fontSize=9;align=left;spacingLeft=8;" parent="1" vertex="1">
+          <mxGeometry x="820" y="1112" width="280" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="706" value="ProjectScores  { projectName, judgeResults[], compositeScore }" style="rounded=0;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#cccccc;fontSize=9;align=left;spacingLeft=8;" parent="1" vertex="1">
+          <mxGeometry x="820" y="1145" width="280" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="707" value="OutlierAnalysis  { globalOutliers[], dimensionalOutliers[], uniqueProfiles[] }" style="rounded=0;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#cccccc;fontSize=9;align=left;spacingLeft=8;" parent="1" vertex="1">
+          <mxGeometry x="820" y="1178" width="280" height="28" as="geometry"/>
+        </mxCell>
+
+        <!-- ========== OUTPUT STRUCTURE ========== -->
+        <mxCell id="800" value="OUTPUT DIRECTORY" style="text;html=1;fontSize=13;fontStyle=1;fontColor=#28a745;align=left;" parent="1" vertex="1">
+          <mxGeometry x="820" y="1240" width="200" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="801" value="output_dir/&#xa;  results.json     (plan + rankings + outliers)&#xa;  rankings.md       (table + methodology)&#xa;  reports/&#xa;    ProjectA.md&#xa;    ProjectB.md&#xa;    ...&#xa;  checkpoints/&#xa;    _plan.json&#xa;    {project}.json" style="rounded=1;whiteSpace=wrap;fillColor=#d4edda;strokeColor=#28a745;fontSize=10;align=left;spacingLeft=12;fontFamily=Courier New;" parent="1" vertex="1">
+          <mxGeometry x="820" y="1270" width="280" height="150" as="geometry"/>
+        </mxCell>
+
+        <!-- Phase 4 to Output -->
+        <mxCell id="802" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#28a745;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.3;" parent="1" source="403" target="801" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="700" y="1190"/>
+              <mxPoint x="700" y="1315"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ========== SANDBOX WRAPPERS ========== -->
+        <mxCell id="900" value="MODAL SANDBOX WRAPPERS" style="text;html=1;fontSize=11;fontStyle=1;fontColor=#b85450;align=left;" parent="1" vertex="1">
+          <mxGeometry x="1150" y="400" width="200" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="901" value="planner&#xa;sandbox/&#xa;planner.ts" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;align=center;" parent="1" vertex="1">
+          <mxGeometry x="1150" y="425" width="75" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="902" value="research&#xa;sandbox/&#xa;research.ts" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;align=center;" parent="1" vertex="1">
+          <mxGeometry x="1235" y="425" width="75" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="903" value="judge&#xa;sandbox/&#xa;judge.ts" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;align=center;" parent="1" vertex="1">
+          <mxGeometry x="1320" y="425" width="75" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="904" value="report&#xa;sandbox/&#xa;report.ts" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;align=center;" parent="1" vertex="1">
+          <mxGeometry x="1405" y="425" width="75" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="905" value="utils.ts — parseSandboxArgs(), postWebhookNotification()" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;align=center;" parent="1" vertex="1">
+          <mxGeometry x="1150" y="485" width="330" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- ========== LEGEND ========== -->
+        <mxCell id="1000" value="LEGEND" style="text;html=1;fontSize=12;fontStyle=1;fontColor=#333333;align=left;" parent="1" vertex="1">
+          <mxGeometry x="1150" y="560" width="100" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="1001" value="Input Data" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="1150" y="585" width="80" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="1002" value="Entry Point" style="rounded=1;whiteSpace=wrap;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="1240" y="585" width="80" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="1003" value="Planning" style="rounded=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="1330" y="585" width="80" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="1004" value="Evaluation" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="1150" y="615" width="80" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="1005" value="Scoring" style="rounded=1;whiteSpace=wrap;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="1240" y="615" width="80" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="1006" value="Reporting" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="1330" y="615" width="80" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="1007" value="External Svc" style="rounded=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="1150" y="645" width="80" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="1008" value="Modal Infra" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="1240" y="645" width="80" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="1009" value="Output" style="rounded=1;whiteSpace=wrap;fillColor=#d4edda;strokeColor=#28a745;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="1330" y="645" width="80" height="25" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

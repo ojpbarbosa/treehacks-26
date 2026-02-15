@@ -1,5 +1,4 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { createHash } from "crypto";
 import { readFile, writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import type { JudgeSpec, CustomJudgeInput, ModelConfig } from "../types.js";
@@ -7,17 +6,13 @@ import { JudgeSpecSchema } from "../types.js";
 
 const CACHE_DIR = ".cache/personas";
 
-function cacheKey(input: CustomJudgeInput): string {
-  const hash = createHash("sha256")
-    .update(`${input.name}:${input.context}`)
-    .digest("hex")
-    .slice(0, 16);
-  return `${input.name.toLowerCase().replace(/\s+/g, "-")}-${hash}.json`;
+function cacheKey(name: string): string {
+  return `${name.toLowerCase().replace(/\s+/g, "-")}.json`;
 }
 
-async function readCache(input: CustomJudgeInput): Promise<JudgeSpec | null> {
+async function readCache(name: string): Promise<JudgeSpec | null> {
   try {
-    const path = join(CACHE_DIR, cacheKey(input));
+    const path = join(CACHE_DIR, cacheKey(name));
     const content = await readFile(path, "utf-8");
     return JudgeSpecSchema.parse(JSON.parse(content));
   } catch {
@@ -25,9 +20,9 @@ async function readCache(input: CustomJudgeInput): Promise<JudgeSpec | null> {
   }
 }
 
-async function writeCache(input: CustomJudgeInput, spec: JudgeSpec): Promise<void> {
+async function writeCache(name: string, spec: JudgeSpec): Promise<void> {
   await mkdir(CACHE_DIR, { recursive: true });
-  const path = join(CACHE_DIR, cacheKey(input));
+  const path = join(CACHE_DIR, cacheKey(name));
   await writeFile(path, JSON.stringify(spec, null, 2));
 }
 
@@ -87,7 +82,7 @@ export async function researchPerson(
   input: CustomJudgeInput,
   models: ModelConfig,
 ): Promise<JudgeSpec> {
-  const cached = await readCache(input);
+  const cached = await readCache(input.name);
   if (cached) return cached;
 
   const prompt = `Research this person and build a judge persona:\n\nName: ${input.name}\nContext: ${input.context}\nNeeds browser: ${input.needsBrowser}\n\nSearch the web thoroughly, then output the JudgeSpec JSON.`;
@@ -137,7 +132,7 @@ export async function researchPerson(
       needsBrowser: input.needsBrowser,
       source: "persona",
     });
-    await writeCache(input, spec);
+    await writeCache(input.name, spec);
     return spec;
   }
 
@@ -147,7 +142,7 @@ export async function researchPerson(
     source: "persona",
   });
 
-  await writeCache(input, spec);
+  await writeCache(input.name, spec);
   return spec;
 }
 
