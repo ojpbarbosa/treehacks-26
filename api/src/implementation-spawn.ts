@@ -44,7 +44,7 @@ async function postDone(payload: Record<string, unknown>) {
  */
 export async function runMockImplementation(
   job: ImplementationJob,
-  _obs: ReturnType<typeof getObservabilityHandlers>
+  _obs: ReturnType<typeof getObservabilityHandlers> | null = null,
 ): Promise<void> {
   const { jobId, idea, risk, temperature, repoUrl, branch } = job;
   log.spawn("mock implementation start " + jobId);
@@ -102,7 +102,7 @@ export async function runMockImplementation(
  */
 export async function runModalImplementation(
   job: ImplementationJob,
-  _obs: ReturnType<typeof getObservabilityHandlers>
+  _obs: ReturnType<typeof getObservabilityHandlers> | null = null,
 ): Promise<void> {
   const url = process.env.MODAL_IMPLEMENTATION_WORKER_URL;
   if (!url) {

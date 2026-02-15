@@ -5,8 +5,8 @@
  */
 
 import { customAlphabet } from "nanoid";
-import { CALLBACK_BASE_URL, EVALUATOR_WEBHOOK_URL, MOCK_INPUT } from "./config.ts";
-import type { TaskInput, IdeationIdea, ImplementationJob } from "./types.ts";
+import { CALLBACK_BASE_URL, EVALUATOR_WEBHOOK_URL } from "./config.ts";
+import type { TaskInput, IdeationIdea, ImplementationJob, ServerState } from "./types.ts";
 import type { ObservabilityHandlers } from "./observability.ts";
 import { ideate } from "./ideation.ts";
 import { createRepo, createBranch, parseRepoFullName } from "./github.ts";
@@ -27,12 +27,19 @@ function generateId(): string {
  */
 export async function runTask(
   input: TaskInput,
-  obs: ObservabilityHandlers | null = null,
+  obs: ObservabilityHandlers,
+  state: ServerState,
 ): Promise<{ success: boolean }> {
   log.treemux("Task: " + input.taskDescription);
   log.treemux("Workers: " + input.workers);
   log.treemux("Callback base: " + CALLBACK_BASE_URL);
   log.treemux("Implementation: " + (USE_MODAL ? "Modal" : "mock"));
+
+  // Reset state for this run
+  state.totalJobs = input.workers;
+  state.doneCount = 0;
+  state.results = [];
+  state.deploymentUrls = {};
 
   // ── Ideation ──────────────────────────────────────────────────
   log.treemux("Running ideation (single OpenRouter call)...");
@@ -47,7 +54,7 @@ export async function runTask(
     return { success: false };
   }
 
-  // obs.broadcast({ type: "IDEATION_DONE", payload: { ideas } });
+  obs.broadcast({ type: "IDEATION_DONE", payload: { ideas } });
   log.treemux("Ideation done, spawning " + ideas.length + " implementation(s)");
 
   // ── GitHub repo + branches + Vercel deployments ───────────────
@@ -78,8 +85,9 @@ export async function runTask(
                 ref: branch,
               });
               const url = deploy.url || `https://${deploy.deploymentId}.vercel.app`;
+              state.deploymentUrls![jobId] = url;
               log.vercel("Deployment endpoint for " + jobId + " (branch " + branch + "): " + url);
-              // obs.broadcast({ type: "JOB_DEPLOYMENT", payload: { jobId, url } });
+              obs.broadcast({ type: "JOB_DEPLOYMENT", payload: { jobId, url } });
               await disableDeploymentProtection(repoName).catch((e) =>
                 log.warn("Could not disable deployment protection: " + String(e))
               );
@@ -122,13 +130,3 @@ export async function runTask(
   log.treemux("All workers spawned (" + jobs.length + "), returning success");
   return { success: true };
 }
-
-async function main() {
-  const result = await runTask(MOCK_INPUT);
-  console.log(result);
-}
-
-main().catch((e) => {
-  log.error("Fatal " + String(e));
-  process.exit(1);
-});

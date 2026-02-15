@@ -1,7 +1,10 @@
 {
   "name": "@treemux/api",
-  "main": "src/index.ts",
   "type": "module",
+  "scripts": {
+    "start": "bun run src/server.ts",
+    "dev": "bun run src/index.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },

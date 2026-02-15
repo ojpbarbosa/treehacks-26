@@ -137,3 +137,15 @@ export interface DeploymentResult {
 }
 
 export type WebhookPayload = DeploymentResult[];
+
+// ─── Server state (shared between controller & server) ──────────
+
+export type OnAllDone = (results: { url: string; idea: string; pitch: string }[]) => void | Promise<void>;
+
+export interface ServerState {
+  totalJobs: number;
+  doneCount: number;
+  results: { url: string; idea: string; pitch: string }[];
+  deploymentUrls?: Record<string, string>;
+  onAllDone?: OnAllDone;
+}
