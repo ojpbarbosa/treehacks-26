@@ -116,7 +116,6 @@ export async function runTask(
       vercelToken: process.env.VERCEL_TOKEN,
       gitUserName: process.env.GIT_USER_NAME,
       gitUserEmail: process.env.GIT_USER_EMAIL,
-      openrouterApiKey: process.env.OPENROUTER_API_KEY,
     });
   }
 

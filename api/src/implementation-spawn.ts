@@ -128,7 +128,6 @@ export async function runModalImplementation(
       vercel_token: job.vercelToken,
       git_user_name: job.gitUserName,
       git_user_email: job.gitUserEmail,
-      openrouter_api_key: job.openrouterApiKey,
     }),
   });
 

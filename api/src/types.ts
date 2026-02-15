@@ -1,6 +1,6 @@
 /**
  * Treemux – Black box layer types
- * Idea → Ideation (OpenRouter) → N × Implementation (Modal + Claude) → GitHub → Vercel
+ * Task → N × Implementation (Modal + Claude Code CLI) → GitHub → Vercel
  *
  * All WebSocket messages use the unified wrapper: { type: string, payload: ... }
  */
@@ -43,8 +43,6 @@ export interface ImplementationJob {
   /** Git committer identity (must match GitHub account owner for Vercel auto-deploy) */
   gitUserName?: string;
   gitUserEmail?: string;
-  /** OpenRouter key for AI pitch generation in the worker */
-  openrouterApiKey?: string;
 }
 
 // ─── Unified WebSocket event types ───────────────────────────────
