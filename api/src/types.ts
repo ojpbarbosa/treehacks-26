@@ -93,6 +93,8 @@ export interface JobDonePayload {
 export interface JobErrorPayload {
   jobId: string;
   error: string;
+  /** Raw stderr from the failed command */
+  stderr?: string;
   /** Which phase failed (e.g. "git_init", "git_push", "agent") */
   phase?: string;
 }

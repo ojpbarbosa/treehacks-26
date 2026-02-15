@@ -103,9 +103,9 @@ export async function runModalImplementation(
   job: ImplementationJob,
   _obs: ReturnType<typeof getObservabilityHandlers>
 ): Promise<void> {
-  const url = process.env.MODAL_IMPLEMENTATION_URL;
+  const url = process.env.MODAL_IMPLEMENTATION_WORKER_URL;
   if (!url) {
-    log.warn("MODAL_IMPLEMENTATION_URL not set, using mock");
+    log.warn("MODAL_IMPLEMENTATION_WORKER_URL not set, using mock");
     return runMockImplementation(job, _obs);
   }
 

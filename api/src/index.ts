@@ -13,7 +13,7 @@ import { createDeployment } from "./vercel.ts";
 import { runMockImplementation, runModalImplementation } from "./implementation-spawn.ts";
 import { log } from "./logger.ts";
 
-const USE_MODAL = Boolean(process.env.MODAL_IMPLEMENTATION_URL);
+const USE_MODAL = Boolean(process.env.MODAL_IMPLEMENTATION_WORKER_URL);
 
 const jobIdGenerator = customAlphabet("abcdefghijklmnopqrstuvwxyz", 21);
 function generateId(): string {
