@@ -1,9 +1,12 @@
 """
-Epoch implementation worker – single file. Trigger endpoint + Sandbox that runs inlined runner via stdin.
-Uses worker/templates/nextjs-base in the image so the sandbox starts from a ready Next.js app (saves time/tokens).
+Epoch implementation worker – single file.
+Trigger endpoint + Sandbox that runs the inlined runner via stdin.
+Templates are stored in a Modal Volume so the Sandbox always has them.
 """
 
 import json
+import os
+import shutil
 from pathlib import Path
 
 import modal
@@ -11,11 +14,58 @@ from fastapi import Request, Response
 
 app = modal.App("epoch-implementation")
 
-# Template lives next to this file: worker/templates/nextjs-base
+# ── Volume for the Next.js template ──
+# Created once via: modal volume create epoch-templates
+# Populated by the sync_templates function below.
+_template_vol = modal.Volume.from_name("epoch-templates", create_if_missing=True)
+
+# Local template dir (used by sync_templates to upload to the Volume)
 _WORKER_DIR = Path(__file__).resolve().parent
 _TEMPLATE_DIR = _WORKER_DIR / "templates" / "nextjs-base"
 
-# Inlined runner: JOB_IMPL_STARTED (with plan) + JOB_LOG (step with summary), commit+push per step.
+# ── Image (no add_local_dir — templates come from the Volume) ──
+_image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .apt_install("git", "curl")
+    .run_commands(
+        "curl -fsSL https://deb.nodesource.com/setup_20.x | bash -",
+        "apt-get install -y nodejs",
+    )
+    .pip_install("claude-agent-sdk", "httpx", "anyio", "fastapi[standard]")
+)
+
+
+# ── Image with templates baked in (only used by sync_templates) ──
+_sync_image = _image.add_local_dir(str(_TEMPLATE_DIR), remote_path="/tmp/tpl", copy=True)
+
+
+# ── Sync templates: local dir → Volume (run once after deploy) ──
+@app.function(image=_sync_image, volumes={"/vol/templates": _template_vol})
+def sync_templates():
+    """Upload templates/nextjs-base into the epoch-templates Volume.
+    Run: modal run worker/implementation.py::sync_templates
+    """
+    print("[sync] uploading templates to Volume...")
+    dst = Path("/vol/templates/nextjs-base")
+    if dst.exists():
+        shutil.rmtree(dst)
+    dst.mkdir(parents=True, exist_ok=True)
+    src = Path("/tmp/tpl")
+    if src.exists():
+        shutil.copytree(src, dst, dirs_exist_ok=True)
+    _template_vol.commit()
+    print("[sync] done. Volume contents:")
+    for p in dst.rglob("*"):
+        if p.is_file():
+            print("  " + str(p.relative_to("/vol/templates")))
+
+
+def _log(msg: str) -> None:
+    print(f"[worker] {msg}", flush=True)
+
+
+# ── Inlined runner ──────────────────────────────────────────────
+# Runs inside the Sandbox. /template is the Volume mount.
 _RUN_IMPL_SOURCE = r'''
 import os
 import re
@@ -27,15 +77,6 @@ from pathlib import Path
 def _env(key, default=""):
     return (os.environ.get(key) or default).strip()
 
-def _summary_for_display(message):
-    s = message.strip()
-    for prefix in ("Good! ", "Great! ", "Okay, ", "Okay ", "Now let me ", "Let me "):
-        if s.startswith(prefix):
-            s = s[len(prefix):].strip()
-            break
-    s = s.strip(".:")
-    return (s[:80] + ("..." if len(s) > 80 else "")) if s else message[:80]
-
 def main():
     job_id = _env("JOB_ID")
     idea = _env("IDEA")
@@ -46,20 +87,30 @@ def main():
     risk = int(_env("RISK", "50"))
     temperature = int(_env("TEMPERATURE", "50"))
     worker_profile = _env("WORKER_PROFILE")
+
     work_dir = Path("/out")
     work_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy template from Volume mount into working directory
     import shutil
-    if Path("/template").exists():
-        for p in Path("/template").rglob("*"):
+    tpl = Path("/template/nextjs-base")
+    if tpl.exists():
+        for p in tpl.rglob("*"):
             if p.is_file():
-                rel = p.relative_to("/template")
+                rel = p.relative_to(tpl)
                 dst = work_dir / rel
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(p, dst)
+        print("[worker] template copied to /out", flush=True)
+    else:
+        print("[worker] WARNING: /template/nextjs-base not found in Volume", flush=True)
+
     os.chdir(work_dir)
+
     base = callback_base_url.rstrip("/") if callback_base_url else ""
     if not base or not (base.startswith("http://") or base.startswith("https://")):
         base = ""
+
     push_url = None
     if repo_url and github_token:
         push_url = repo_url.replace("https://", "https://x-access-token:%s@" % github_token)
@@ -69,100 +120,137 @@ def main():
             subprocess.run(["git", "init"], cwd=work_dir, check=True, capture_output=True)
             subprocess.run(["git", "branch", "-M", branch], cwd=work_dir, check=True, capture_output=True)
             subprocess.run(["git", "remote", "add", "origin", push_url], cwd=work_dir, check=True, capture_output=True)
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
             push_url = None
+            print("[worker] git init failed: %s" % e, flush=True)
+            if base:
+                try:
+                    _err = urllib.request.Request(base + "/v1.0/log/error", data=json.dumps({"jobId": job_id, "error": "git init failed: %s" % e, "phase": "git_init"}).encode(), headers={"Content-Type": "application/json"}, method="POST")
+                    urllib.request.urlopen(_err, timeout=10)
+                except Exception:
+                    pass
+
     def _log(msg):
-        print("[implementation]", msg, flush=True)
-    def post_event(evt_type, payload):
+        print("[worker]", msg, flush=True)
+
+    def _post(path, body):
         if not base:
             return
         try:
-            req = urllib.request.Request(base + "/internal/job-event", data=json.dumps({"type": evt_type, "payload": payload}).encode(), headers={"Content-Type": "application/json"}, method="POST")
+            req = urllib.request.Request(base + path, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}, method="POST")
             urllib.request.urlopen(req, timeout=10)
         except Exception as e:
-            _log("job-event error: %s" % e)
-    def commit_and_push(step_index, step_msg):
+            _log("callback %s error: %s" % (path, e))
+
+    def commit_and_push(step_index, summary):
         if not push_url:
             return
         try:
             subprocess.run(["git", "add", "-A"], cwd=work_dir, check=True, capture_output=True)
-            subprocess.run(["git", "commit", "-m", "Step %s: %s" % (step_index, step_msg[:72]), "--allow-empty"], cwd=work_dir, check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "Step %s: %s" % (step_index, summary[:72]), "--allow-empty"], cwd=work_dir, check=True, capture_output=True)
             subprocess.run(["git", "push", "-u", "origin", branch], cwd=work_dir, check=True, capture_output=True, timeout=120)
             _log("pushed step %s" % step_index)
         except subprocess.CalledProcessError as e:
             _log("git push step %s failed: %s" % (step_index, e))
-    _log("run_impl started job_id=%s branch=%s" % (job_id, branch))
-    started_sent = [False]
-    def post_step(message, step_index, done):
-        summary = _summary_for_display(message)
-        post_event("JOB_LOG", {"jobId": job_id, "stepIndex": step_index, "done": done, "message": message, "summary": summary})
-        commit_and_push(step_index, message)
+            _post("/v1.0/log/error", {"jobId": job_id, "error": "git push failed at step %s: %s" % (step_index, e), "phase": "git_push"})
+
+    _log("started job_id=%s branch=%s" % (job_id, branch))
+
+    # ── Claude agent ──
     import anyio
     from claude_agent_sdk import ClaudeAgentOptions, query, AssistantMessage, TextBlock, ResultMessage
-    system_prompt = "You are an expert developer. The current directory already contains a Next.js app (App Router, TypeScript, Tailwind). Do NOT run npx create-next-app or npm create. Just implement the idea by editing and adding files. First output a short numbered plan (exactly one line per step, e.g. 1. Step one 2. Step two), then execute each step. Use only Read, Write, Edit, Bash, Glob. Idea: %s. Worker profile: %s. Risk: %s, Temperature: %s. Keep minimal but functional. For each step, start with a single short line describing the step, then do the work." % (idea, worker_profile, risk, temperature)
-    prompt = "Implement this idea in the existing Next.js app in the current directory: %s\n\nFirst output your numbered plan (one line per step), then execute each step. Do not run create-next-app." % idea
+
+    system_prompt = """You are an expert full-stack developer building a Next.js app.
+
+CONTEXT:
+- The current directory already contains a Next.js 14 app (App Router, TypeScript, Tailwind CSS 4).
+- Do NOT run npx create-next-app, npm create, or any scaffolding command.
+- Just implement the idea by editing and adding files.
+
+PLAN FORMAT (mandatory first message):
+Output a numbered plan. Each line MUST be:
+  <number>. <PipelineLabel> — <one sentence description>
+Example:
+  1. Installing dependencies — Add required npm packages for the feature
+  2. Creating data model — Define TypeScript types and API route
+  3. Building UI components — Create the main page and interactive elements
+  4. Adding styling — Apply Tailwind classes and responsive layout
+  5. Testing build — Run npm build to verify everything compiles
+
+STEP OUTPUT FORMAT (each subsequent message):
+Start each step with EXACTLY one line matching:
+  [STEP <number>/<total>] <PipelineLabel>
+Then do the work silently. Do NOT narrate what you are doing, do NOT say "Let me...", "Now I'll...", "Perfect!", "Great!", etc. Just output the step header line, then use tools.
+
+Idea: %s
+Worker profile: %s
+Risk level (0-100): %s
+Temperature (creativity, 0-100): %s""" % (idea, worker_profile, risk, temperature)
+
+    prompt = "Implement this idea: %s\n\nOutput your numbered plan first, then execute each step." % idea
+
+    plan_steps = []
+    total_steps = [0]
     step_index = [0]
+    started_sent = [False]
+
+    def send_step(summary, done):
+        idx = step_index[0]
+        _post("/v1.0/log/step", {"jobId": job_id, "stepIndex": idx, "totalSteps": total_steps[0], "done": done, "summary": summary})
+        commit_and_push(idx, summary)
+
     async def run_agent():
         async for message in query(prompt=prompt, options=ClaudeAgentOptions(system_prompt=system_prompt, allowed_tools=["Read", "Write", "Edit", "Bash", "Glob"], permission_mode="acceptEdits")):
             if isinstance(message, AssistantMessage):
                 for block in message.content:
                     if isinstance(block, TextBlock) and block.text.strip():
                         text = block.text.strip()
+
+                        # First message: parse the numbered plan
                         if not started_sent[0]:
                             started_sent[0] = True
                             lines = [l.strip() for l in text.split("\n") if l.strip()]
-                            num_steps = 0
-                            plan_lines = []
                             for l in lines:
-                                m = re.match(r"^(\d+)\.\s*(.+)", l)
+                                m = re.match(r"^(\d+)\.\s*(.+?)(?:\s*[-\u2014]\s*.+)?$", l)
                                 if m:
-                                    num_steps += 1
-                                    plan_lines.append(m.group(2).strip())
-                                elif num_steps > 0:
-                                    break
-                            if num_steps == 0:
-                                num_steps = min(6, max(1, len(lines)))
-                                plan_lines = lines[:num_steps]
-                            plan_insight = "\n".join(plan_lines[:10]) if plan_lines else text[:500]
-                            post_event("JOB_IMPL_STARTED", {"jobId": job_id, "idea": idea, "temperature": temperature, "risk": risk, "totalSteps": num_steps or None, "planInsight": plan_insight})
-                        post_step(text[:500], step_index[0], False)
+                                    plan_steps.append(m.group(2).strip())
+                            if not plan_steps:
+                                plan_steps.extend(lines[:6])
+                            total_steps[0] = len(plan_steps) or 6
+                            _post("/v1.0/log/start", {"jobId": job_id, "idea": idea, "temperature": temperature, "risk": risk, "branch": branch, "totalSteps": total_steps[0], "planSteps": plan_steps})
+                            continue
+
+                        # Subsequent messages: extract [STEP n/t] label or use plan step
+                        step_m = re.match(r"^\[STEP\s+(\d+)/(\d+)\]\s*(.+)", text, re.IGNORECASE)
+                        if step_m:
+                            summary = step_m.group(3).strip()
+                        elif step_index[0] < len(plan_steps):
+                            summary = plan_steps[step_index[0]]
+                        else:
+                            summary = "Implementing step %s" % (step_index[0] + 1)
+
+                        send_step(summary, False)
                         step_index[0] += 1
+
             elif isinstance(message, ResultMessage):
-                post_step("Agent run complete", step_index[0], True)
+                send_step("Build complete", True)
+
     anyio.run(run_agent)
     _log("agent run finished")
+
     pitch = "Built with Epoch: %s..." % idea[:120]
-    if base:
-        try:
-            req = urllib.request.Request(base + "/internal/done", data=json.dumps({"jobId": job_id, "repoUrl": repo_url or "", "pitch": pitch, "success": bool(repo_url or not github_token), "error": None, "branch": branch}).encode(), headers={"Content-Type": "application/json"}, method="POST")
-            urllib.request.urlopen(req, timeout=15)
-        except Exception as e:
-            _log("done callback error: %s" % e)
-    _log("run_impl finished")
+    _post("/v1.0/log/done", {"jobId": job_id, "repoUrl": repo_url or "", "pitch": pitch, "success": bool(repo_url or not github_token), "error": None, "branch": branch})
+    _log("finished")
 main()
 '''
 
 
-def _log(msg: str) -> None:
-    print(f"[implementation] {msg}", flush=True)
-
-
-_image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .apt_install("git", "curl")
-    .run_commands(
-        "curl -fsSL https://deb.nodesource.com/setup_20.x | bash -",
-        "apt-get install -y nodejs",
-    )
-    .pip_install("claude-agent-sdk", "httpx", "anyio", "fastapi[standard]")
-    .add_local_dir(str(_TEMPLATE_DIR), remote_path="/template", copy=True)
-)
-
-
+# ── Sandbox runner ──────────────────────────────────────────────
 @app.function(
     image=_image,
     timeout=1900,
     secrets=[modal.Secret.from_name("anthropic")],
+    volumes={"/vol/templates": _template_vol},
 )
 def run_in_sandbox(
     job_id: str,
@@ -175,7 +263,7 @@ def run_in_sandbox(
     repo_url: str | None,
     github_token: str | None,
 ) -> None:
-    """Create a Sandbox, inject job params as env, run inlined runner via stdin."""
+    """Create a Sandbox with the template Volume mounted, run the inlined runner."""
     job_secret = modal.Secret.from_dict({
         "JOB_ID": job_id,
         "IDEA": idea,
@@ -192,6 +280,7 @@ def run_in_sandbox(
         app=app,
         image=_image,
         secrets=[modal.Secret.from_name("anthropic"), job_secret],
+        volumes={"/template": _template_vol},
         timeout=1800,
     )
     try:
@@ -209,6 +298,7 @@ def run_in_sandbox(
         _log("Sandbox terminated")
 
 
+# ── HTTP trigger ────────────────────────────────────────────────
 @app.function(image=_image)
 @modal.fastapi_endpoint(method="POST")
 async def trigger(request: Request):

@@ -1,6 +1,8 @@
 /**
  * Epoch – Black box layer types
  * Idea → Ideation (OpenRouter) → N × Implementation (Modal + Claude) → GitHub → Vercel
+ *
+ * All WebSocket messages use the unified wrapper: { type: string, payload: ... }
  */
 
 /** Mocked input: task + workers (evaluator unused for now) */
@@ -32,58 +34,78 @@ export interface ImplementationJob {
   temperature: number;
   workerProfile: string;
   callbackBaseUrl: string;
-  /** Branch to push to and to use as Vercel ref (e.g. epoch-job-0) */
+  /** Branch to push to and to use as Vercel ref */
   branch: string;
   repoUrl?: string;
   githubToken?: string;
 }
 
-/** Step update from implementation module → orchestrator (then WS) */
-export interface StepUpdate {
-  jobId: string;
-  step: string;
-  stepIndex: number;
-  done: boolean;
-  message?: string;
+// ─── Unified WebSocket event types ───────────────────────────────
+
+/** Every WS message has this shape */
+export type WsEvent =
+  | { type: "IDEATION_DONE"; payload: IdeationDonePayload }
+  | { type: "JOB_STARTED"; payload: JobStartedPayload }
+  | { type: "JOB_STEP_LOG"; payload: JobStepLogPayload }
+  | { type: "JOB_DONE"; payload: JobDonePayload }
+  | { type: "JOB_ERROR"; payload: JobErrorPayload }
+  | { type: "JOB_DEPLOYMENT"; payload: JobDeploymentPayload }
+  | { type: "ALL_DONE"; payload: AllDonePayload };
+
+export interface IdeationDonePayload {
+  ideas: IdeationIdea[];
 }
 
-/** Unified job event: wrapper { type, payload } for all implementation → orchestrator events */
-export type JobEvent =
-  | { type: "JOB_IMPL_STARTED"; payload: JobImplStartedPayload }
-  | { type: "JOB_LOG"; payload: JobLogPayload };
-
-/** Sent once when the sandbox starts; includes plan and context for the end user */
-export interface JobImplStartedPayload {
+/** Sent when the sandbox starts — includes plan + context for the UI pipeline */
+export interface JobStartedPayload {
   jobId: string;
   idea: string;
   temperature: number;
   risk: number;
-  /** Total steps the AI planned (from initial numbered plan) */
-  totalSteps?: number;
-  /** Plan summary or first lines for display */
-  planInsight?: string;
+  branch: string;
+  /** Total planned steps (parsed from numbered plan) */
+  totalSteps: number;
+  /** One-line-per-step plan for the pipeline UI */
+  planSteps: string[];
 }
 
-/** Per-step log line; summary is user-friendly, message is full text */
-export interface JobLogPayload {
+/** Per-step log — shown as a node/log-line in the pipeline UI */
+export interface JobStepLogPayload {
   jobId: string;
   stepIndex: number;
+  totalSteps: number;
   done: boolean;
-  /** Full message from the agent */
-  message: string;
-  /** Short line for display (e.g. "Step 3: Create Next.js structure") */
+  /** Concise label for the pipeline node (e.g. "Installing dependencies") */
   summary: string;
 }
 
-/** Done payload from implementation module */
-export interface ImplementationDone {
+/** Job finished */
+export interface JobDonePayload {
   jobId: string;
   repoUrl: string;
   pitch: string;
   success: boolean;
   error?: string;
-  /** Branch that was pushed (use as ref for Vercel) */
   branch?: string;
+}
+
+/** Non-fatal error during job execution (e.g. git push failed) */
+export interface JobErrorPayload {
+  jobId: string;
+  error: string;
+  /** Which phase failed (e.g. "git_init", "git_push", "agent") */
+  phase?: string;
+}
+
+/** Vercel deployment URL available */
+export interface JobDeploymentPayload {
+  jobId: string;
+  url: string;
+}
+
+/** All jobs done → evaluator webhook fired */
+export interface AllDonePayload {
+  results: { url: string; pitch: string }[];
 }
 
 /** Final webhook payload when all deployments are ready */

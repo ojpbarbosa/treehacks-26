@@ -48,6 +48,12 @@ export async function createDeployment(options: {
         repo,
         ref,
       },
+      projectSettings: {
+        framework: "nextjs",
+        buildCommand: "npm run build",
+        installCommand: "npm install",
+        outputDirectory: ".next",
+      },
     },
   });
 

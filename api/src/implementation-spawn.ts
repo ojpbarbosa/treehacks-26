@@ -9,85 +9,90 @@ import { log } from "./logger.ts";
 
 const CALLBACK_BASE = process.env.CALLBACK_BASE_URL ?? "http://localhost:3000";
 
-async function postJobEvent(
-  type: "JOB_IMPL_STARTED" | "JOB_LOG",
-  payload: Record<string, unknown>
-) {
-  const url = `${CALLBACK_BASE}/internal/job-event`;
+async function postStart(payload: Record<string, unknown>) {
+  const url = `${CALLBACK_BASE}/v1.0/log/start`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type, payload }),
+    body: JSON.stringify(payload),
   });
-  if (!res.ok) log.warn("job-event callback failed " + res.status);
+  if (!res.ok) log.warn("start callback failed " + res.status);
 }
 
-async function postDone(
-  jobId: string,
-  repoUrl: string,
-  pitch: string,
-  success: boolean,
-  error?: string,
-  branch?: string
-) {
-  const url = `${CALLBACK_BASE}/internal/done`;
+async function postStep(payload: Record<string, unknown>) {
+  const url = `${CALLBACK_BASE}/v1.0/log/step`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jobId, repoUrl, pitch, success, error, branch }),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) log.warn("step callback failed " + res.status);
+}
+
+async function postDone(payload: Record<string, unknown>) {
+  const url = `${CALLBACK_BASE}/v1.0/log/done`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
   if (!res.ok) log.warn("done callback failed " + res.status);
 }
 
 /**
- * Run mock implementation (no Modal): log steps and report done with repoUrl.
- * Used when MODAL_IMPLEMENTATION_URL is not set (terminal-first).
+ * Run mock implementation (no Modal): emit JOB_STARTED, JOB_STEP_LOG, JOB_DONE.
  */
 export async function runMockImplementation(
   job: ImplementationJob,
-  obs: ReturnType<typeof getObservabilityHandlers>
+  _obs: ReturnType<typeof getObservabilityHandlers>
 ): Promise<void> {
-  const { jobId, idea, risk, temperature, repoUrl } = job;
-  log.spawn("mock implementation start " + jobId + " risk=" + risk + " temp=" + temperature);
-  obs.broadcast({ type: "implementation_start", jobId, idea, risk, temperature });
+  const { jobId, idea, risk, temperature, repoUrl, branch } = job;
+  log.spawn("mock implementation start " + jobId);
 
-  await postJobEvent("JOB_IMPL_STARTED", {
+  const planSteps = [
+    "Installing dependencies",
+    "Creating data model",
+    "Building UI components",
+    "Adding styling",
+    "Testing build",
+  ];
+
+  await postStart({
     jobId,
     idea,
     temperature,
     risk,
-    totalSteps: 5,
-    planInsight: "Plan: scaffold Next.js app → Create layout and page → Implement feature → Add styling → Verify build",
+    branch,
+    totalSteps: planSteps.length,
+    planSteps,
   });
 
-  const steps = [
-    "Plan: scaffold Next.js app",
-    "Create app layout and page",
-    "Implement core feature from idea",
-    "Add styling and polish",
-    "Verify build",
-  ];
-  for (let i = 0; i < steps.length; i++) {
-    await postJobEvent("JOB_LOG", {
+  for (let i = 0; i < planSteps.length; i++) {
+    await postStep({
       jobId,
       stepIndex: i,
+      totalSteps: planSteps.length,
       done: false,
-      message: steps[i],
-      summary: steps[i],
+      summary: planSteps[i],
     });
     await new Promise((r) => setTimeout(r, 500));
   }
-  await postJobEvent("JOB_LOG", {
+  await postStep({
     jobId,
-    stepIndex: steps.length,
+    stepIndex: planSteps.length,
+    totalSteps: planSteps.length,
     done: true,
-    message: "Complete",
-    summary: "Complete",
+    summary: "Build complete",
   });
 
-  const pitch = "Built with Epoch: " + idea;
-  const branch = job.branch ?? "main";
-  await postDone(jobId, repoUrl ?? "https://github.com/epoch/demo", pitch, true, undefined, branch);
+  await postDone({
+    jobId,
+    repoUrl: repoUrl ?? "https://github.com/epoch/demo",
+    pitch: "Built with Epoch: " + idea,
+    success: true,
+    error: null,
+    branch: branch ?? "main",
+  });
   log.spawn("mock implementation done " + jobId);
 }
 
@@ -96,22 +101,15 @@ export async function runMockImplementation(
  */
 export async function runModalImplementation(
   job: ImplementationJob,
-  obs: ReturnType<typeof getObservabilityHandlers>
+  _obs: ReturnType<typeof getObservabilityHandlers>
 ): Promise<void> {
   const url = process.env.MODAL_IMPLEMENTATION_URL;
   if (!url) {
     log.warn("MODAL_IMPLEMENTATION_URL not set, using mock");
-    return runMockImplementation(job, obs);
+    return runMockImplementation(job, _obs);
   }
 
   log.spawn("triggering Modal implementation " + job.jobId);
-  obs.broadcast({
-    type: "implementation_start",
-    jobId: job.jobId,
-    idea: job.idea,
-    risk: job.risk,
-    temperature: job.temperature,
-  });
 
   const res = await fetch(url, {
     method: "POST",
@@ -131,7 +129,14 @@ export async function runModalImplementation(
 
   if (!res.ok) {
     log.error("Modal trigger failed " + res.status + " " + (await res.text()));
-    await postDone(job.jobId, job.repoUrl ?? "", "Implementation failed.", false, "Modal request failed");
+    await postDone({
+      jobId: job.jobId,
+      repoUrl: job.repoUrl ?? "",
+      pitch: "Implementation failed.",
+      success: false,
+      error: "Modal request failed",
+      branch: job.branch,
+    });
   }
-  // Modal runs async; it will call /internal/job-event and /internal/done when done.
+  // Modal runs async; worker calls /api/internal/start, /api/internal/step, /api/internal/done.
 }

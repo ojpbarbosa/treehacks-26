@@ -1,11 +1,12 @@
 /**
  * Epoch orchestrator server: WebSocket + HTTP callbacks for implementation modules.
- * Terminal-first: all events logged; WS used for future dashboard.
+ * All inbound POST payloads use the unified { type, payload } shape (WsEvent).
  */
 
-import type { ImplementationDone, JobEvent } from "./types.ts";
+import type { JobStartedPayload, JobStepLogPayload, JobDonePayload, JobErrorPayload, WsEvent } from "./types.ts";
 import { getObservabilityHandlers } from "./observability.ts";
 import { createDeployment } from "./vercel.ts";
+import { parseRepoFullName } from "./github.ts";
 import { log } from "./logger.ts";
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
@@ -16,47 +17,79 @@ export interface ServerState {
   totalJobs: number;
   doneCount: number;
   results: { url: string; pitch: string }[];
+  deploymentUrls?: Record<string, string>;
   onAllDone?: OnAllDone;
 }
 
 export function createServer(state: ServerState) {
   const obs = getObservabilityHandlers(PORT);
 
-  async function handleJobEvent(req: Request): Promise<Response> {
+  /** POST /v1.0/log/start — worker signals sandbox has started with plan */
+  async function handleStart(req: Request): Promise<Response> {
     if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
-    let body: JobEvent;
+    let body: JobStartedPayload;
     try {
-      body = (await req.json()) as JobEvent;
+      body = (await req.json()) as JobStartedPayload;
     } catch {
-      log.error("/internal/job-event invalid JSON");
+      log.error("/v1.0/log/start invalid JSON");
       return new Response("Invalid JSON", { status: 400 });
     }
-    if (body.type !== "JOB_IMPL_STARTED" && body.type !== "JOB_LOG") {
-      log.error("/internal/job-event unknown type: " + (body as { type?: string }).type);
-      return new Response("Unknown event type", { status: 400 });
-    }
-    log.server("job-event " + body.type + " " + body.payload.jobId);
-    obs.broadcast(body);
+    log.server("JOB_STARTED " + body.jobId + " totalSteps=" + body.totalSteps);
+    obs.broadcast({ type: "JOB_STARTED", payload: body });
     return new Response(JSON.stringify({ ok: true }), {
       headers: { "Content-Type": "application/json" },
     });
   }
 
-  async function handleDone(req: Request): Promise<Response> {
+  /** POST /v1.0/log/step — worker sends per-step progress */
+  async function handleStep(req: Request): Promise<Response> {
     if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
-    let body: ImplementationDone;
+    let body: JobStepLogPayload;
     try {
-      body = (await req.json()) as ImplementationDone;
+      body = (await req.json()) as JobStepLogPayload;
     } catch {
-      log.error("/internal/done invalid JSON");
+      log.error("/v1.0/log/step invalid JSON");
       return new Response("Invalid JSON", { status: 400 });
     }
-    log.server("done " + body.jobId + " " + body.repoUrl + " success=" + body.success + " pitch=" + (body.pitch ?? ""));
+    log.server("JOB_STEP_LOG " + body.jobId + " [" + body.stepIndex + "/" + body.totalSteps + "] " + body.summary);
+    obs.broadcast({ type: "JOB_STEP_LOG", payload: body });
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
-    obs.broadcast({ type: "done", payload: body });
+  /** POST /v1.0/log/error — worker reports a non-fatal error */
+  async function handleError(req: Request): Promise<Response> {
+    if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
+    let body: JobErrorPayload;
+    try {
+      body = (await req.json()) as JobErrorPayload;
+    } catch {
+      log.error("/v1.0/log/error invalid JSON");
+      return new Response("Invalid JSON", { status: 400 });
+    }
+    log.server("JOB_ERROR " + body.jobId + " phase=" + (body.phase ?? "unknown") + " " + body.error);
+    obs.broadcast({ type: "JOB_ERROR", payload: body });
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
-    let url = body.repoUrl;
-    if (body.success && body.repoUrl && process.env.VERCEL_TOKEN) {
+  /** POST /v1.0/log/done — worker signals completion */
+  async function handleDone(req: Request): Promise<Response> {
+    if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
+    let body: JobDonePayload;
+    try {
+      body = (await req.json()) as JobDonePayload;
+    } catch {
+      log.error("/v1.0/log/done invalid JSON");
+      return new Response("Invalid JSON", { status: 400 });
+    }
+    log.server("JOB_DONE " + body.jobId + " success=" + body.success);
+    obs.broadcast({ type: "JOB_DONE", payload: body });
+
+    let url = state.deploymentUrls?.[body.jobId] ?? body.repoUrl;
+    if (body.success && body.repoUrl && !state.deploymentUrls?.[body.jobId] && process.env.VERCEL_TOKEN) {
       try {
         const [org, repo] = parseRepoFullName(body.repoUrl);
         if (org && repo) {
@@ -68,13 +101,14 @@ export function createServer(state: ServerState) {
             ref,
           });
           url = deploy.url || (deploy.deploymentId ? `https://${deploy.deploymentId}.vercel.app` : body.repoUrl);
-          obs.broadcast({ type: "deployment", jobId: body.jobId, url });
+          obs.broadcast({ type: "JOB_DEPLOYMENT", payload: { jobId: body.jobId, url } });
         }
       } catch (e) {
         log.warn("Vercel deploy failed for " + body.jobId + " " + String(e));
       }
-    } else if (body.success && body.repoUrl && !process.env.VERCEL_TOKEN) {
-      log.server("Skipping Vercel (no VERCEL_TOKEN); using repo URL as result");
+    }
+    if (url) {
+      log.server("Deployment endpoint " + body.jobId + ": " + url);
     }
 
     state.results.push({ url: url || body.repoUrl, pitch: body.pitch ?? "" });
@@ -83,7 +117,7 @@ export function createServer(state: ServerState) {
 
     if (state.doneCount >= state.totalJobs) {
       log.server("all implementations done, firing evaluator webhook");
-      obs.broadcast({ type: "all_done", results: state.results });
+      obs.broadcast({ type: "ALL_DONE", payload: { results: state.results } });
       await state.onAllDone?.(state.results);
     }
 
@@ -100,30 +134,20 @@ export function createServer(state: ServerState) {
         if (server.upgrade(req)) return;
         return new Response("Upgrade failed", { status: 426 });
       }
-      if (u.pathname === "/internal/job-event") return handleJobEvent(req);
-      if (u.pathname === "/internal/done") return handleDone(req);
+      if (u.pathname === "/v1.0/log/start") return handleStart(req);
+      if (u.pathname === "/v1.0/log/step") return handleStep(req);
+      if (u.pathname === "/v1.0/log/error") return handleError(req);
+      if (u.pathname === "/v1.0/log/done") return handleDone(req);
       if (u.pathname === "/health") return new Response("ok");
       return new Response("Not found", { status: 404 });
     },
     websocket: {
-      open(ws) {
-        obs.wsOpen(ws);
-      },
-      close(ws) {
-        obs.wsClose(ws);
-      },
-      message(ws, msg) {
-        obs.wsMessage(ws, msg);
-      },
+      open(ws) { obs.wsOpen(ws); },
+      close(ws) { obs.wsClose(ws); },
+      message(ws, msg) { obs.wsMessage(ws, msg); },
     },
   });
 
-  log.server("Listening on " + server.port + " WS /ws, POST /internal/job-event, /internal/done");
+  log.server("Listening on " + server.port + " WS /ws, POST /v1.0/log/{start,step,error,done}");
   return { server, obs };
-}
-
-function parseRepoFullName(repoUrl: string): [string, string] {
-  const m = repoUrl.match(/github\.com[/:]([^/]+)\/([^/]+?)(?:\.git)?$/);
-  if (m) return [m[1]!, m[2]!.replace(/\.git$/, "")];
-  return ["", ""];
 }
