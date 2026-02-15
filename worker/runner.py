@@ -193,7 +193,6 @@ def main():
             "--verbose "
             "--append-system-prompt-file %s "
             "--dangerously-skip-permissions "
-            "--max-turns 100 "
             "%s" % (prompt_doc_path, prompt_path, model_flag),
         ]
 
