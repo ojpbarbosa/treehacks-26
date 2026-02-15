@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { motion } from 'framer-motion'
-import { ExternalLink, Globe, Image as ImageIcon } from 'lucide-react'
+import { ExternalLink, Globe, Image as ImageIcon, RefreshCw } from 'lucide-react'
 
 interface DeployNodeProps {
   data: { url: string; index: number }
@@ -12,9 +12,20 @@ interface DeployNodeProps {
 export default function DeployNode({ data }: DeployNodeProps) {
   const { url, index } = data
   const [imgError, setImgError] = useState(false)
+  const [tick, setTick] = useState(0)
+  const imgRef = useRef<HTMLImageElement>(null)
 
-  // Screenshot thumbnail via microlink
-  const screenshotUrl = `https://api.microlink.io/?url=${encodeURIComponent(url)}&screenshot=true&meta=false&embed=screenshot.url`
+  // Refresh screenshot every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setImgError(false)
+      setTick(t => t + 1)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [url])
+
+  // Screenshot thumbnail via microlink with cache-busting
+  const screenshotUrl = `https://api.microlink.io/?url=${encodeURIComponent(url)}&screenshot=true&meta=false&embed=screenshot.url&cacheBust=${tick}`
 
   const openUrl = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -42,6 +53,14 @@ export default function DeployNode({ data }: DeployNodeProps) {
             <span className="text-[9px] font-mono text-primary uppercase tracking-wider">
               Live Preview
             </span>
+            <motion.div
+              key={tick}
+              initial={{ rotate: 0 }}
+              animate={{ rotate: 360 }}
+              transition={{ duration: 0.5 }}
+            >
+              <RefreshCw size={7} className="text-primary/40" />
+            </motion.div>
           </div>
           <button
             onClick={openUrl}
@@ -58,6 +77,8 @@ export default function DeployNode({ data }: DeployNodeProps) {
         >
           {!imgError ? (
             <img
+              ref={imgRef}
+              key={`${url}-${tick}`}
               src={screenshotUrl}
               alt="Site preview"
               className="w-full h-full object-cover object-top"

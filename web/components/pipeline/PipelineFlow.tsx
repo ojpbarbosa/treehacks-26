@@ -15,6 +15,7 @@ import '@xyflow/react/dist/style.css'
 
 import TaskNode from './TaskNode'
 import WorkerNode from './WorkerNode'
+import ProfileNode from './ProfileNode'
 import DeployNode from './DeployNode'
 import PitchNode from './PitchNode'
 import JudgeNode from './JudgeNode'
@@ -35,6 +36,7 @@ import type {
 const nodeTypes = {
   taskNode: TaskNode,
   workerNode: WorkerNode,
+  profileNode: ProfileNode,
   deployNode: DeployNode,
   pitchNode: PitchNode,
   judgeNode: JudgeNode,
@@ -45,9 +47,10 @@ const nodeTypes = {
 
 const COL_TASK = 0
 const COL_WORKER = 380
-const COL_DEPLOY = 740
-const COL_PITCH = 1080
-const COL_JUDGE = 1420
+const COL_PROFILE = 720
+const COL_DEPLOY = 1000
+const COL_PITCH = 1340
+const COL_JUDGE = 1680
 const ROW_SPACING = 340
 const ROW_OFFSET = 50
 
@@ -121,7 +124,7 @@ function buildElements(state: PipelineState): { nodes: Node[]; edges: Edge[] } {
         id: workerId,
         type: 'workerNode',
         position: { x: COL_WORKER, y },
-        data: { job, index: i, workerProfile: workerDescriptions[i] },
+        data: { job, index: i },
       })
       edges.push({
         id: `task-${workerId}`,
@@ -130,7 +133,29 @@ function buildElements(state: PipelineState): { nodes: Node[]; edges: Edge[] } {
         ...EDGE_ACTIVE,
       } as Edge)
 
-      // ── Column 2: Deploy preview ──────────────────────────
+      // The last source node in the chain (worker → profile? → deploy? → pitch? → judge)
+      let lastSourceId = workerId
+
+      // ── Profile node (between worker and deploy) ──────────
+      const profile = workerDescriptions[i]
+      if (profile) {
+        const profileId = `profile-${job.jobId}`
+        nodes.push({
+          id: profileId,
+          type: 'profileNode',
+          position: { x: COL_PROFILE, y },
+          data: { workerProfile: profile, index: i },
+        })
+        edges.push({
+          id: `${workerId}-${profileId}`,
+          source: workerId,
+          target: profileId,
+          ...EDGE_ACTIVE,
+        } as Edge)
+        lastSourceId = profileId
+      }
+
+      // ── Deploy preview ────────────────────────────────────
       if (job.deploymentUrl) {
         const deployId = `deploy-${job.jobId}`
         nodes.push({
@@ -140,21 +165,22 @@ function buildElements(state: PipelineState): { nodes: Node[]; edges: Edge[] } {
           data: { url: job.deploymentUrl, index: i },
         })
         edges.push({
-          id: `${workerId}-${deployId}`,
-          source: workerId,
+          id: `${lastSourceId}-${deployId}`,
+          source: lastSourceId,
           target: deployId,
           ...EDGE_ACTIVE,
           style: { stroke: 'rgba(3, 141, 57, 0.6)', strokeWidth: 2 },
         } as Edge)
+        lastSourceId = deployId
 
-        // ── Column 3: Pitch (after JOB_DONE with pitch) ─────
+        // ── Pitch (after JOB_DONE with pitch) ───────────────
         if (job.pitch) {
           const pitchId = `pitch-${job.jobId}`
           nodes.push({
             id: pitchId,
             type: 'pitchNode',
             position: { x: COL_PITCH, y },
-            data: { pitch: job.pitch, workerProfile: workerDescriptions[i], index: i },
+            data: { pitch: job.pitch, workerProfile: profile, index: i },
           })
           edges.push({
             id: `${deployId}-${pitchId}`,
@@ -178,10 +204,10 @@ function buildElements(state: PipelineState): { nodes: Node[]; edges: Edge[] } {
           } as Edge)
         }
       } else {
-        // worker → judge (dashed, waiting for deploy)
+        // no deploy yet → last source → judge (dashed)
         edges.push({
-          id: `${workerId}-judge`,
-          source: workerId,
+          id: `${lastSourceId}-judge`,
+          source: lastSourceId,
           target: 'judge',
           ...EDGE_DASHED,
         } as Edge)
@@ -262,7 +288,7 @@ function PipelineFlowInner(props: PipelineState) {
       panOnScroll
       zoomOnScroll
     >
-      <Background color="rgba(3, 141, 57, 0.08)" gap={32} size={1} />
+      <Background color="rgba(3, 141, 57, 0.15)" gap={32} size={1} />
       <Controls
         showInteractive={false}
         className="!bg-bg-dark/80 !border-border-green !rounded-lg"

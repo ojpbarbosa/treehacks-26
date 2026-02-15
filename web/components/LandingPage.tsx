@@ -2,40 +2,152 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Zap, ArrowRight, Bot, Rocket, BarChart3, Layers } from 'lucide-react'
+import { Zap, ArrowRight } from 'lucide-react'
 
-// ─── Capability cards shown in the right panel ───────────────────
+// ─── Fake event data for the preview panes ──────────────────────
 
-const CAPABILITIES = [
+const PREVIEW_TEAMS = [
   {
-    icon: Bot,
-    label: 'AI Agent Teams',
-    description: 'Simulate smart people, great ideas, and great implementation.',
-    color: 'text-primary',
-    borderColor: 'border-primary/20',
+    name: 'NeuralBridge',
+    status: 'Building MVP',
+    statusColor: 'text-primary',
+    events: [
+      { type: 'Breakthrough', text: 'WebSocket latency under 50ms' },
+      { type: 'Shipping', text: 'Auth flow deployed to staging' },
+      { type: 'Milestone', text: 'Core API endpoints complete' },
+    ],
   },
   {
-    icon: Rocket,
-    label: 'Idea → Deployment',
-    description: 'End-to-end pipeline: ideation, code, deploy, evaluate — fully autonomous.',
-    color: 'text-cyan-400',
-    borderColor: 'border-cyan-400/20',
+    name: 'QuantumLeap',
+    status: 'Prototyping',
+    statusColor: 'text-cyan-400',
+    events: [
+      { type: 'Pivot', text: 'Switching from B2C to API-first' },
+      { type: 'Risk', text: 'Rate limiting on external API' },
+    ],
   },
   {
-    icon: BarChart3,
-    label: 'Actionable Insights',
-    description: 'AI judges score every build on metrics that matter — not vibes.',
-    color: 'text-amber-400',
-    borderColor: 'border-amber-400/20',
+    name: 'EchoFrame',
+    status: 'Integrating',
+    statusColor: 'text-amber-400',
+    events: [
+      { type: 'Shipping', text: 'Real-time dashboard live' },
+      { type: 'Breakthrough', text: 'Edge caching reduces load 4x' },
+      { type: 'Milestone', text: 'User testing round 1 done' },
+    ],
   },
   {
-    icon: Layers,
-    label: 'Simulate Anything',
-    description: 'Hackathons, YC batches, product sprints — without building anything.',
-    color: 'text-purple-400',
-    borderColor: 'border-purple-400/20',
+    name: 'SynthWave',
+    status: 'Ideating',
+    statusColor: 'text-blue-400',
+    events: [
+      { type: 'Milestone', text: 'Problem space validated' },
+      { type: 'Risk', text: 'Unclear differentiation from competitors' },
+    ],
+  },
+  {
+    name: 'DataForge',
+    status: 'Polishing Demo',
+    statusColor: 'text-purple-400',
+    events: [
+      { type: 'Shipping', text: 'Demo video recorded' },
+      { type: 'Breakthrough', text: 'ML pipeline accuracy at 94%' },
+    ],
+  },
+  {
+    name: 'CloudPulse',
+    status: 'Building MVP',
+    statusColor: 'text-primary',
+    events: [
+      { type: 'Shipping', text: 'Landing page deployed' },
+      { type: 'Risk', text: 'Third-party SDK breaking changes' },
+      { type: 'Milestone', text: 'Database schema finalized' },
+    ],
   },
 ]
+
+const TYPE_COLORS: Record<string, string> = {
+  Pivot: 'bg-amber-500/20 text-amber-400/80 border-amber-500/20',
+  Breakthrough: 'bg-emerald-500/20 text-emerald-400/80 border-emerald-500/20',
+  Risk: 'bg-red-500/20 text-red-400/80 border-red-500/20',
+  Milestone: 'bg-blue-500/20 text-blue-400/80 border-blue-500/20',
+  Shipping: 'bg-purple-500/20 text-purple-400/80 border-purple-500/20',
+}
+
+interface PreviewTeam {
+  name: string
+  status: string
+  statusColor: string
+  events: { type: string; text: string }[]
+}
+
+interface PreviewPaneProps {
+  team: PreviewTeam
+  col: number
+  row: number
+}
+
+function PreviewPane({ team, col, row }: PreviewPaneProps) {
+  const borders = [
+    row === 0 ? 'border-b border-border-green/25' : '',
+    col < 2 ? 'border-r border-border-green/25' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  return (
+    <div className={`overflow-hidden p-3 ${borders}`}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] font-semibold text-cream/50">{team.name}</span>
+        <span className={`text-[8px] font-mono uppercase tracking-wider ${team.statusColor} opacity-60`}>
+          {team.status}
+        </span>
+      </div>
+
+      {/* Fake events */}
+      <div className="space-y-1.5">
+        {team.events.map((event, j) => (
+          <div key={j} className="flex items-start gap-1.5">
+            <span className={`text-[7px] font-mono px-1 py-0.5 rounded border shrink-0 ${TYPE_COLORS[event.type]}`}>
+              {event.type}
+            </span>
+            <span className="text-[9px] text-text-muted/60 leading-tight">{event.text}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function DashboardPreview() {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 1, delay: 0.3 }}
+      className="w-full h-full rounded-xl border border-border-green/30 bg-bg-card/40 backdrop-blur-sm overflow-hidden"
+    >
+      {/* Simulated control bar */}
+      <div className="h-8 border-b border-border-green/20 flex items-center px-4 gap-3">
+        <div className="w-3 h-3 rounded-full border border-primary/30" />
+        <div className="flex-1 h-1 bg-primary/10 rounded-full">
+          <div className="w-1/3 h-full bg-primary/25 rounded-full" />
+        </div>
+        <span className="text-[8px] font-mono text-text-muted/40">12.4h / 36h</span>
+      </div>
+
+      {/* 3x2 grid */}
+      <div className="grid grid-cols-3 grid-rows-2" style={{ height: 'calc(100% - 2rem)' }}>
+        {PREVIEW_TEAMS.map((team, i) => (
+          <PreviewPane key={team.name} team={team} col={i % 3} row={Math.floor(i / 3)} />
+        ))}
+      </div>
+    </motion.div>
+  )
+}
+
+// ─── Landing Page ────────────────────────────────────────────────
 
 interface LandingPageProps {
   onStart: () => void
@@ -52,9 +164,9 @@ export default function LandingPage({ onStart, onCreateTask }: LandingPageProps)
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.7, ease: 'easeOut' }}
-        className="lg:w-[45%] relative z-20 flex flex-col justify-center px-8 sm:px-12 lg:px-16 py-16 lg:py-0 min-h-[50vh] lg:min-h-screen"
+        className="lg:w-[35%] relative z-20 flex flex-col justify-center px-8 sm:px-12 lg:px-16 py-16 lg:py-0 min-h-[50vh] lg:min-h-screen"
       >
-        <div className="max-w-lg">
+        <div className="max-w-md">
           {/* Badge */}
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -79,7 +191,7 @@ export default function LandingPage({ onStart, onCreateTask }: LandingPageProps)
 
           {/* Tagline */}
           <p className="text-base sm:text-lg text-text-secondary leading-relaxed mb-4 max-w-md">
-            Simulates AI teams from idea to deployment — generating products, pitches,
+            Simulate AI teams from idea to deployment. Gnerate products, pitches,
             and metrics in a sandbox.
           </p>
 
@@ -140,27 +252,15 @@ export default function LandingPage({ onStart, onCreateTask }: LandingPageProps)
         </div>
       </motion.div>
 
-      {/* Right side — Capability cards */}
+      {/* Right side — Dashboard preview */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1, delay: 0.3 }}
-        className="lg:w-[55%] relative z-10 flex items-center justify-center p-8 lg:p-16 min-h-[50vh] lg:min-h-screen"
+        className="lg:w-[65%] relative z-10 flex items-center justify-center p-8 lg:p-12 min-h-[50vh] lg:min-h-screen"
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg w-full">
-          {CAPABILITIES.map((cap, i) => (
-            <motion.div
-              key={cap.label}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 + i * 0.12 }}
-              className={`rounded-xl border ${cap.borderColor} bg-bg-card/50 backdrop-blur-sm p-5 hover:bg-bg-card/80 transition-colors`}
-            >
-              <cap.icon size={20} className={`${cap.color} mb-3`} />
-              <h3 className="text-sm font-semibold text-cream mb-1.5">{cap.label}</h3>
-              <p className="text-[11px] text-text-muted leading-relaxed">{cap.description}</p>
-            </motion.div>
-          ))}
+        <div className="w-full max-w-3xl h-[380px] lg:h-[440px]">
+          <DashboardPreview />
         </div>
 
         {/* Vignette edges */}

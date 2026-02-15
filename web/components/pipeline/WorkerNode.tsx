@@ -6,11 +6,11 @@ import { Thermometer, AlertTriangle, CheckCircle2, Loader2, GitBranch, XCircle }
 import type { Job } from '../../hooks/useTaskStream'
 
 interface WorkerNodeProps {
-  data: { job: Job; index: number; workerProfile?: string }
+  data: { job: Job; index: number }
 }
 
 export default function WorkerNode({ data }: WorkerNodeProps) {
-  const { job, index, workerProfile } = data
+  const { job, index } = data
   const progress = job.totalSteps > 0 ? (job.currentStep / job.totalSteps) * 100 : 0
   const currentStepName = job.planSteps[job.currentStep] ?? 'Waiting…'
   const isBuilding = job.status === 'building'
@@ -63,13 +63,6 @@ export default function WorkerNode({ data }: WorkerNodeProps) {
             <span className="text-[8px] font-mono text-text-muted truncate">{job.branch}</span>
           </div>
         </div>
-
-        {/* Worker profile */}
-        {workerProfile && (
-          <div className="px-4 py-1.5 border-b border-border-green/10">
-            <p className="text-[8px] text-text-secondary leading-relaxed line-clamp-2">{workerProfile}</p>
-          </div>
-        )}
 
         {/* Gauges */}
         <div className="px-4 py-2 flex gap-4 border-b border-border-green/10">

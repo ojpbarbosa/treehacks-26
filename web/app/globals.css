@@ -61,7 +61,7 @@
   z-index: 10;
 }
 
-/* Lighter green tone for the flow canvas area */
+/* Very light green background for the flow canvas area */
 .pipeline-canvas {
-  background-color: #001f10;
+  background-color: #dcfce7;
 }

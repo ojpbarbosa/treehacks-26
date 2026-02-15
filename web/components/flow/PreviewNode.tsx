@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { motion } from 'framer-motion'
 import { ExternalLink, Globe, Image as ImageIcon } from 'lucide-react'
@@ -12,8 +12,18 @@ interface PreviewNodeProps {
 export default function PreviewNode({ data }: PreviewNodeProps) {
   const { url } = data
   const [imgError, setImgError] = useState(false)
+  const [tick, setTick] = useState(0)
 
-  const screenshotUrl = `https://api.microlink.io/?url=${encodeURIComponent(url)}&screenshot=true&meta=false&embed=screenshot.url`
+  // Refresh screenshot every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setImgError(false)
+      setTick(t => t + 1)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [url])
+
+  const screenshotUrl = `https://api.microlink.io/?url=${encodeURIComponent(url)}&screenshot=true&meta=false&embed=screenshot.url&cacheBust=${tick}`
 
   const openUrl = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -56,6 +66,7 @@ export default function PreviewNode({ data }: PreviewNodeProps) {
         >
           {!imgError ? (
             <img
+              key={`${url}-${tick}`}
               src={screenshotUrl}
               alt="Site preview"
               className="w-full h-full object-cover object-top"
