@@ -5,17 +5,46 @@ import ControlBar from './ControlBar'
 import TeamMonitor from './TeamMonitor'
 import MobileTeamSwitcher from './MobileTeamSwitcher'
 
-export default function LiveBuildRoom({ sim, onViewResults }) {
+interface SimTeam {
+  id: string
+  name: string
+  currentIdea: { title: string; pitch?: string; direction?: string }
+  status: string
+  chips: string[]
+  milestones: { id: string; label: string; completed: boolean }[]
+  events: { type: string; text: string; hour: number }[]
+  metrics: Record<string, number>
+  [key: string]: unknown
+}
+
+interface Simulation {
+  simHour: number
+  isPlaying: boolean
+  speed: number
+  teams: SimTeam[]
+  play: () => void
+  pause: () => void
+  setSimSpeed: (speed: number) => void
+  jumpToHour: (hour: number) => void
+}
+
+interface LiveBuildRoomProps {
+  sim: Simulation
+  onViewResults: () => void
+}
+
+export default function LiveBuildRoom({ sim, onViewResults }: LiveBuildRoomProps) {
   const { simHour, isPlaying, speed, teams, play, pause, setSimSpeed, jumpToHour } = sim
   const [mobileActiveIndex, setMobileActiveIndex] = useState(0)
   const [showMobileGrid, setShowMobileGrid] = useState(false)
-  const containerRef = useRef(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const displayTeams = teams.slice(0, 6)
 
-  const handleScroll = useCallback((e) => {
-    const delta = e.target.scrollTop - (e.target._lastScrollTop || 0)
-    e.target._lastScrollTop = e.target.scrollTop
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement & { _lastScrollTop?: number }
+    const delta = target.scrollTop - (target._lastScrollTop || 0)
+    target._lastScrollTop = target.scrollTop
     window.dispatchEvent(new CustomEvent('dotgrid-scroll', { detail: { delta } }))
   }, [])
 

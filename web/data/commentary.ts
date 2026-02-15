@@ -1,43 +1,71 @@
 // Generates structured judge commentary based on team simulation data.
 // Commentary is derived from metrics, events, and pivots — not random.
 
-function hadPivot(team) {
-  return team.events?.some(e => e.type === 'Pivot')
+import type { TeamMetrics, TeamEvent, IdeaUpdate } from './teams'
+
+/** A ranked team with final score and breakdown, as produced by calculateFinalScores */
+export interface RankedTeam {
+  name: string
+  finalScore: number
+  breakdown: TeamMetrics
+  currentIdea?: IdeaUpdate | null
+  events?: TeamEvent[]
+  [key: string]: unknown
 }
 
-function riskCount(team) {
-  return team.events?.filter(e => e.type === 'Risk').length || 0
+export interface TeamAnalysis {
+  name: string
+  title: string
+  rank: number
+  strengths: string[]
+  weaknesses: string[]
+  tradeoffs: string[]
 }
 
-function breakthroughCount(team) {
-  return team.events?.filter(e => e.type === 'Breakthrough').length || 0
+export interface Commentary {
+  summary: string[]
+  teamAnalyses: TeamAnalysis[]
 }
 
-function shippingCount(team) {
-  return team.events?.filter(e => e.type === 'Shipping').length || 0
+type MetricKey = keyof TeamMetrics
+
+function hadPivot(team: RankedTeam): boolean {
+  return team.events?.some(e => e.type === 'Pivot') ?? false
 }
 
-function topMetric(breakdown) {
-  const entries = Object.entries(breakdown)
+function riskCount(team: RankedTeam): number {
+  return team.events?.filter(e => e.type === 'Risk').length ?? 0
+}
+
+function breakthroughCount(team: RankedTeam): number {
+  return team.events?.filter(e => e.type === 'Breakthrough').length ?? 0
+}
+
+function shippingCount(team: RankedTeam): number {
+  return team.events?.filter(e => e.type === 'Shipping').length ?? 0
+}
+
+function topMetric(breakdown: TeamMetrics): [MetricKey, number] {
+  const entries = Object.entries(breakdown) as [MetricKey, number][]
   entries.sort((a, b) => b[1] - a[1])
   return entries[0]
 }
 
-function weakestMetric(breakdown) {
-  const entries = Object.entries(breakdown)
+function weakestMetric(breakdown: TeamMetrics): [MetricKey, number] {
+  const entries = Object.entries(breakdown) as [MetricKey, number][]
   entries.sort((a, b) => a[1] - b[1])
   return entries[0]
 }
 
-const METRIC_LABELS = {
+const METRIC_LABELS: Record<MetricKey, string> = {
   feasibility: 'feasibility',
   novelty: 'novelty',
   demoReadiness: 'demo readiness',
   marketClarity: 'market clarity',
 }
 
-function generateStrengths(team) {
-  const strengths = []
+function generateStrengths(team: RankedTeam): string[] {
+  const strengths: string[] = []
   const b = team.breakdown
 
   if (b.novelty >= 75) strengths.push('Highly original concept that stood out from the field')
@@ -58,8 +86,8 @@ function generateStrengths(team) {
   return strengths.slice(0, 4)
 }
 
-function generateWeaknesses(team) {
-  const weaknesses = []
+function generateWeaknesses(team: RankedTeam): string[] {
+  const weaknesses: string[] = []
   const b = team.breakdown
 
   if (b.novelty < 60) weaknesses.push('Concept felt derivative — judges wanted a more distinctive angle')
@@ -78,8 +106,8 @@ function generateWeaknesses(team) {
   return weaknesses.slice(0, 3)
 }
 
-function generateTradeoffs(team, rank, ranked) {
-  const tradeoffs = []
+function generateTradeoffs(team: RankedTeam, rank: number, ranked: RankedTeam[]): string[] {
+  const tradeoffs: string[] = []
   const b = team.breakdown
 
   if (b.novelty > b.feasibility + 15) {
@@ -119,14 +147,14 @@ function generateTradeoffs(team, rank, ranked) {
   return tradeoffs.slice(0, 3)
 }
 
-function generateExecutiveSummary(ranked) {
+function generateExecutiveSummary(ranked: RankedTeam[]): string[] {
   const first = ranked[0]
   const second = ranked[1]
   const third = ranked[2]
   const gap12 = first.finalScore - second.finalScore
   const gap23 = second.finalScore - third.finalScore
 
-  const lines = []
+  const lines: string[] = []
 
   // Why first place won
   const [topKey] = topMetric(first.breakdown)
@@ -175,10 +203,10 @@ function generateExecutiveSummary(ranked) {
   return lines
 }
 
-export function generateCommentary(ranked) {
+export function generateCommentary(ranked: RankedTeam[]): Commentary {
   const summary = generateExecutiveSummary(ranked)
 
-  const teamAnalyses = ranked.slice(0, 3).map((team, i) => ({
+  const teamAnalyses: TeamAnalysis[] = ranked.slice(0, 3).map((team, i) => ({
     name: team.name,
     title: team.currentIdea?.title || team.name,
     rank: i,

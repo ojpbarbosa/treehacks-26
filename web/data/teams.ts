@@ -1,15 +1,66 @@
-const PERSONALITY_CHIPS = [
+export type EventType = 'Milestone' | 'Risk' | 'Shipping' | 'Breakthrough' | 'Pivot'
+
+export interface IdeaUpdate {
+  title?: string
+  pitch?: string
+  direction?: string
+}
+
+export interface ScriptEvent {
+  hour: number
+  text: string
+  type: EventType
+  milestone?: string
+  ideaUpdate?: IdeaUpdate
+}
+
+export interface MilestoneTemplate {
+  id: string
+  label: string
+  defaultHour: number | null
+}
+
+export interface Milestone extends MilestoneTemplate {
+  completed: boolean
+  hour: number | null
+}
+
+export interface TeamMetrics {
+  feasibility: number
+  novelty: number
+  demoReadiness: number
+  marketClarity: number
+}
+
+export interface TeamEvent {
+  id: string
+  text: string
+  type: EventType
+  hour: number
+}
+
+export interface Team {
+  id: string
+  name: string
+  chips: string[]
+  initialMetrics: TeamMetrics
+  initialMilestones: Milestone[]
+  initialEvents: TeamEvent[]
+  script: ScriptEvent[]
+}
+
+const PERSONALITY_CHIPS: string[] = [
   'Full-Stack', 'ML/AI', 'Design', 'Backend', 'Mobile', 'Hardware',
   'Data Viz', 'DevOps', 'Blockchain', 'AR/VR', 'NLP', 'Systems',
 ]
 
-const TEAM_NAMES = [
+const TEAM_NAMES: string[] = [
   'NeuroLink', 'GreenByte', 'QuantumLeap', 'EchoVerse',
   'SynthWave', 'Arboretum', 'Meridian', 'NovaCraft',
   'Terraform', 'Helix',
 ]
 
-const MILESTONE_TEMPLATES = [
+const MILESTONE_TEMPLATES: MilestoneTemplate[] = [
   { id: 'ideation', label: 'Ideation', defaultHour: 2 },
   { id: 'mvp-skeleton', label: 'MVP Skeleton', defaultHour: 8 },
   { id: 'pivot', label: 'Pivot', defaultHour: null },
@@ -20,7 +71,7 @@ const MILESTONE_TEMPLATES = [
 
 // Each script tells a story: propose ideas → one gets challenged → pivot → build
 // ideaUpdate fields populate/change the idea card dynamically
-const TEAM_SCRIPTS = [
+const TEAM_SCRIPTS: ScriptEvent[][] = [
   // Team 0: NeuroLink — proposes EEG idea, gets challenged on hardware cost, stays course
   [
     { hour: 0.3, text: 'Pitching ideas: EEG focus tracker, sleep optimizer, stress monitor', type: 'Milestone' },
@@ -183,12 +234,12 @@ const TEAM_SCRIPTS = [
   ],
 ]
 
-function pickN(arr, n) {
+function pickN<T>(arr: T[], n: number): T[] {
   const shuffled = [...arr].sort(() => Math.random() - 0.5)
   return shuffled.slice(0, n)
 }
 
-export const TEAMS = Array.from({ length: 10 }, (_, i) => ({
+export const TEAMS: Team[] = Array.from({ length: 10 }, (_, i) => ({
   id: `team-${i}`,
   name: TEAM_NAMES[i],
   chips: pickN(PERSONALITY_CHIPS, 3),
@@ -207,7 +258,7 @@ export const TEAMS = Array.from({ length: 10 }, (_, i) => ({
   script: TEAM_SCRIPTS[i] || TEAM_SCRIPTS[i % 6].map(e => ({ ...e })),
 }))
 
-export function getTeamStatus(hour) {
+export function getTeamStatus(hour: number): string {
   if (hour < 2) return 'Ideating'
   if (hour < 8) return 'Prototyping'
   if (hour < 18) return 'Building MVP'
@@ -216,7 +267,18 @@ export function getTeamStatus(hour) {
   return 'Final Push'
 }
 
-export function calculateFinalScores(teams) {
+export interface ScoredTeam {
+  id: string
+  name: string
+  metrics: TeamMetrics
+  events?: TeamEvent[]
+  currentIdea?: IdeaUpdate | null
+  finalScore: number
+  breakdown: TeamMetrics
+  [key: string]: unknown
+}
+
+export function calculateFinalScores(teams: { name: string; metrics: TeamMetrics; [key: string]: unknown }[]): ScoredTeam[] {
   return teams.map(team => {
     const m = team.metrics
     const total = Math.round(
@@ -234,6 +296,6 @@ export function calculateFinalScores(teams) {
         demoReadiness: m.demoReadiness,
         marketClarity: m.marketClarity,
       },
-    }
+    } as ScoredTeam
   }).sort((a, b) => b.finalScore - a.finalScore)
 }

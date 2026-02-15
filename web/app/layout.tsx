@@ -1,12 +1,13 @@
+import type { Metadata } from 'next'
 import DotGrid from '../components/DotGrid'
 import './globals.css'
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'TreeHacks Simulator 2026',
   description: '36 Hours. 6 Teams. Live Build.',
 }
 
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>

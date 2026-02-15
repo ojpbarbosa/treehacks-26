@@ -2,22 +2,39 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trophy, Award, Star, BarChart3, ChevronDown } from 'lucide-react'
-import { calculateFinalScores } from '../data/teams'
+import { Trophy, Award, Star, BarChart3, ChevronDown, LucideIcon } from 'lucide-react'
+import { calculateFinalScores, type TeamMetrics } from '../data/teams'
 import { generateCommentary } from '../data/commentary'
 
-const AWARD_ICONS = [Trophy, Award, Star]
-const AWARD_COLORS = ['text-yellow-400', 'text-gray-300', 'text-amber-600']
-const AWARD_LABELS = ['1st Place', '2nd Place', '3rd Place']
+const AWARD_ICONS: LucideIcon[] = [Trophy, Award, Star]
+const AWARD_COLORS = ['text-yellow-400', 'text-gray-300', 'text-amber-600'] as const
+const AWARD_LABELS = ['1st Place', '2nd Place', '3rd Place'] as const
 
 const CRITERIA = [
   { key: 'novelty', label: 'Novelty', weight: '30%' },
   { key: 'feasibility', label: 'Feasibility', weight: '25%' },
   { key: 'demoReadiness', label: 'Demo Readiness', weight: '25%' },
   { key: 'marketClarity', label: 'Market Clarity', weight: '20%' },
-]
+] as const
 
-export default function JudgesScreen({ teams, onRestart, onBackToReplay }) {
+interface Team {
+  id: string
+  name: string
+  metrics: TeamMetrics
+  currentIdea?: { title?: string; pitch?: string }
+  events?: { type: string; text: string }[]
+  finalScore?: number
+  breakdown?: Record<string, number>
+  [key: string]: unknown
+}
+
+interface JudgesScreenProps {
+  teams: Team[]
+  onRestart: () => void
+  onBackToReplay: () => void
+}
+
+export default function JudgesScreen({ teams, onRestart, onBackToReplay }: JudgesScreenProps) {
   const ranked = calculateFinalScores(teams)
   const topThree = ranked.slice(0, 3)
   const rest = ranked.slice(3, 6)
@@ -115,11 +132,11 @@ export default function JudgesScreen({ teams, onRestart, onBackToReplay }) {
         transition={{ delay: 1.3 }}
         className="max-w-3xl mx-auto px-6 mb-12 w-full"
       >
-        <h2 className="text-sm font-mono text-text-muted uppercase tracking-wider mb-6">Judges' Verdict</h2>
+        <h2 className="text-sm font-mono text-text-muted uppercase tracking-wider mb-6">Judges&apos; Verdict</h2>
 
         {/* Executive Summary */}
         <div className="mb-8 space-y-3">
-          {commentary.summary.map((line, i) => (
+          {commentary.summary.map((line: string, i: number) => (
             <p key={i} className="text-sm text-text-secondary leading-relaxed">{line}</p>
           ))}
         </div>
@@ -149,7 +166,7 @@ export default function JudgesScreen({ teams, onRestart, onBackToReplay }) {
               className="overflow-hidden"
             >
               <div className="space-y-8 pb-4">
-                {commentary.teamAnalyses.map((analysis, i) => (
+                {commentary.teamAnalyses.map((analysis: { name: string; title: string; strengths: string[]; weaknesses: string[]; tradeoffs: string[] }, i: number) => (
                   <div key={analysis.name}>
                     {/* Team header */}
                     <div className="flex items-center gap-2 mb-4">
@@ -166,7 +183,7 @@ export default function JudgesScreen({ teams, onRestart, onBackToReplay }) {
                       <div>
                         <h4 className="text-[10px] font-mono text-primary uppercase tracking-wider mb-2">Strengths</h4>
                         <ul className="space-y-1.5">
-                          {analysis.strengths.map((s, j) => (
+                          {analysis.strengths.map((s: string, j: number) => (
                             <li key={j} className="text-xs text-text-secondary leading-snug flex gap-1.5">
                               <span className="text-primary/50 shrink-0 mt-px">•</span>
                               <span>{s}</span>
@@ -179,7 +196,7 @@ export default function JudgesScreen({ teams, onRestart, onBackToReplay }) {
                       <div>
                         <h4 className="text-[10px] font-mono text-amber-400/70 uppercase tracking-wider mb-2">Weaknesses</h4>
                         <ul className="space-y-1.5">
-                          {analysis.weaknesses.map((w, j) => (
+                          {analysis.weaknesses.map((w: string, j: number) => (
                             <li key={j} className="text-xs text-text-secondary leading-snug flex gap-1.5">
                               <span className="text-amber-500/40 shrink-0 mt-px">•</span>
                               <span>{w}</span>
@@ -192,7 +209,7 @@ export default function JudgesScreen({ teams, onRestart, onBackToReplay }) {
                       <div>
                         <h4 className="text-[10px] font-mono text-text-muted uppercase tracking-wider mb-2">Tradeoffs</h4>
                         <ul className="space-y-1.5">
-                          {analysis.tradeoffs.map((t, j) => (
+                          {analysis.tradeoffs.map((t: string, j: number) => (
                             <li key={j} className="text-xs text-text-secondary leading-snug flex gap-1.5">
                               <span className="text-text-muted shrink-0 mt-px">•</span>
                               <span>{t}</span>

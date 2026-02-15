@@ -1,25 +1,54 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { TEAMS, getTeamStatus } from '../data/teams'
+import type { TeamMetrics, TeamEvent, Milestone, ScriptEvent, IdeaUpdate } from '../data/teams'
 
 const TICK_MS = 80
 const HOURS_PER_TICK = 0.04
 
-export function useSimulation() {
+export interface SimulationTeam {
+  id: string
+  name: string
+  chips: string[]
+  initialMetrics: TeamMetrics
+  initialMilestones: Milestone[]
+  initialEvents: TeamEvent[]
+  script: ScriptEvent[]
+  events: TeamEvent[]
+  metrics: TeamMetrics
+  currentIdea: IdeaUpdate | null
+  milestones: Milestone[]
+  status: string
+  lastScriptIndex: number
+}
+
+export interface UseSimulationReturn {
+  simHour: number
+  isPlaying: boolean
+  speed: number
+  teams: SimulationTeam[]
+  finished: boolean
+  play: () => void
+  pause: () => void
+  setSimSpeed: (s: number) => void
+  jumpToHour: (hour: number) => void
+}
+
+export function useSimulation(): UseSimulationReturn {
   const [simHour, setSimHour] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [speed, setSpeed] = useState(1)
   const [finished, setFinished] = useState(false)
-  const [teams, setTeams] = useState(() => TEAMS.map(t => ({
+  const [teams, setTeams] = useState<SimulationTeam[]>(() => TEAMS.map(t => ({
     ...t,
-    events: [],
+    events: [] as TeamEvent[],
     metrics: { ...t.initialMetrics },
-    currentIdea: null, // starts empty — populated by ideaUpdate events
+    currentIdea: null,
     milestones: t.initialMilestones.map(m => ({ ...m })),
     status: 'Ideating',
     lastScriptIndex: -1,
   })))
 
-  const intervalRef = useRef(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const tick = useCallback(() => {
     setSimHour(prev => {
@@ -47,7 +76,7 @@ export function useSimulation() {
         const scriptEvent = team.script[nextIndex]
         updated = true
 
-        const event = {
+        const event: TeamEvent = {
           id: `${team.id}-${nextIndex}`,
           text: scriptEvent.text,
           type: scriptEvent.type,
@@ -106,6 +135,7 @@ export function useSimulation() {
         lastScriptIndex: nextIndex - 1,
       }
     }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Math.floor(simHour * 4)])
 
   useEffect(() => {
@@ -122,9 +152,9 @@ export function useSimulation() {
     setIsPlaying(true)
   }, [finished])
   const pause = useCallback(() => setIsPlaying(false), [])
-  const setSimSpeed = useCallback((s) => setSpeed(s), [])
+  const setSimSpeed = useCallback((s: number) => setSpeed(s), [])
 
-  const jumpToHour = useCallback((hour) => {
+  const jumpToHour = useCallback((hour: number) => {
     setSimHour(hour)
     if (hour >= 36) {
       setFinished(true)
@@ -135,11 +165,11 @@ export function useSimulation() {
     // Replay events up to this hour, but preserve milestones that were already completed
     setTeams(prev => prev.map((currentTeam, idx) => {
       const t = TEAMS[idx]
-      let newEvents = []
+      const newEvents: TeamEvent[] = []
       // Start from current milestones — never uncomplete a milestone
       let newMilestones = currentTeam.milestones.map(m => ({ ...m }))
-      let newMetrics = { ...t.initialMetrics }
-      let newIdea = null
+      let newMetrics: TeamMetrics = { ...t.initialMetrics }
+      let newIdea: IdeaUpdate | null = null
       let lastIdx = -1
 
       for (let i = 0; i < t.script.length; i++) {
@@ -158,7 +188,7 @@ export function useSimulation() {
           )
         }
         if (se.ideaUpdate) {
-          newIdea = newIdea ? { ...newIdea, ...se.ideaUpdate } : { ...se.ideaUpdate }
+          newIdea = Object.assign({}, newIdea ?? {}, se.ideaUpdate) as IdeaUpdate
         }
         if (se.type === 'Breakthrough') {
           newMetrics.feasibility = Math.min(100, newMetrics.feasibility + 8)

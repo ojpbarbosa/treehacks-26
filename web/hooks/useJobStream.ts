@@ -4,8 +4,74 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 
 const STORAGE_KEY = 'treehacks-events'
 
-function buildJobsFromEvents(events) {
-  const jobs = new Map()
+export interface JobStep {
+  stepIndex: number
+  summary: string
+  done: boolean
+}
+
+export interface JobPush {
+  stepIndex: number
+  branch: string
+  summary: string
+}
+
+export interface Job {
+  jobId: string
+  idea: string
+  temperature: number
+  risk: string
+  branch: string
+  totalSteps: number
+  planSteps: string[]
+  currentStep: number
+  steps: JobStep[]
+  pushes: JobPush[]
+  deploymentUrl?: string
+  status: 'building' | 'deployed'
+}
+
+interface StartEvent {
+  id: number
+  type: 'start'
+  jobId: string
+  idea: string
+  temperature: number
+  risk: string
+  branch: string
+  totalSteps: number
+  planSteps: string[]
+}
+
+interface StepEvent {
+  id: number
+  type: 'step'
+  jobId: string
+  stepIndex: number
+  summary: string
+  done: boolean
+}
+
+interface PushEvent {
+  id: number
+  type: 'push'
+  jobId: string
+  stepIndex: number
+  branch: string
+  summary: string
+}
+
+interface DeploymentEvent {
+  id: number
+  type: 'deployment'
+  jobId: string
+  url: string
+}
+
+type StreamEvent = StartEvent | StepEvent | PushEvent | DeploymentEvent
+
+function buildJobsFromEvents(events: StreamEvent[]): Map<string, Job> {
+  const jobs = new Map<string, Job>()
 
   for (const event of events) {
     switch (event.type) {
@@ -21,7 +87,7 @@ function buildJobsFromEvents(events) {
           currentStep: -1,
           steps: [],
           pushes: [],
-          deploymentUrl: null,
+          deploymentUrl: undefined,
           status: 'building',
         })
         break
@@ -66,7 +132,7 @@ function buildJobsFromEvents(events) {
   return jobs
 }
 
-function loadStoredEvents() {
+function loadStoredEvents(): StreamEvent[] {
   if (typeof window === 'undefined') return []
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
@@ -76,20 +142,25 @@ function loadStoredEvents() {
   }
 }
 
-function getMaxEventId(events) {
+function getMaxEventId(events: StreamEvent[]): number {
   return events.reduce((max, e) => Math.max(max, e.id || 0), 0)
 }
 
-export function useJobStream() {
-  const eventsRef = useRef(loadStoredEvents())
-  const [jobs, setJobs] = useState(() => buildJobsFromEvents(eventsRef.current))
+export interface UseJobStreamReturn {
+  jobs: Job[]
+  clearJobs: () => void
+}
+
+export function useJobStream(): UseJobStreamReturn {
+  const eventsRef = useRef<StreamEvent[]>(loadStoredEvents())
+  const [jobs, setJobs] = useState<Map<string, Job>>(() => buildJobsFromEvents(eventsRef.current))
 
   useEffect(() => {
     const lastId = getMaxEventId(eventsRef.current)
     const eventSource = new EventSource(`/api/events?lastId=${lastId}`)
 
-    eventSource.onmessage = (e) => {
-      const event = JSON.parse(e.data)
+    eventSource.onmessage = (e: MessageEvent) => {
+      const event: StreamEvent = JSON.parse(e.data)
 
       // Deduplicate by event id
       if (eventsRef.current.some(existing => existing.id === event.id)) return

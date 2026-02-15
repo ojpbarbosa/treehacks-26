@@ -4,7 +4,30 @@ import { Handle, Position } from '@xyflow/react'
 import { motion } from 'framer-motion'
 import { GitBranch, Thermometer, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
 
-export default function BuildNode({ data }) {
+interface Step {
+  stepIndex: number
+  [key: string]: unknown
+}
+
+interface Job {
+  jobId: string
+  branch: string
+  idea: string
+  status: string
+  temperature: number
+  risk: number
+  totalSteps: number
+  currentStep: number
+  steps: Step[]
+  planSteps?: string[]
+  deploymentUrl?: string
+}
+
+interface BuildNodeProps {
+  data: { job: Job }
+}
+
+export default function BuildNode({ data }: BuildNodeProps) {
   const { job } = data
   const completedSteps = job.steps.length
   const progress = job.totalSteps > 0 ? (completedSteps / job.totalSteps) * 100 : 0

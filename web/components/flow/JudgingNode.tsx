@@ -4,7 +4,14 @@ import { Handle, Position } from '@xyflow/react'
 import { motion } from 'framer-motion'
 import { Trophy, Loader2 } from 'lucide-react'
 
-export default function JudgingNode({ data }) {
+interface JudgingNodeProps {
+  data: {
+    deployedCount: number
+    totalJobs: number
+  }
+}
+
+export default function JudgingNode({ data }: JudgingNodeProps) {
   const { deployedCount, totalJobs } = data
   const allDeployed = totalJobs > 0 && deployedCount === totalJobs
 

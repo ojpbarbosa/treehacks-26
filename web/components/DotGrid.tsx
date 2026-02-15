@@ -7,15 +7,16 @@ const DOT_RADIUS = 1
 const DOT_COLOR = 'rgba(3, 141, 57, 0.15)'
 
 export default function DotGrid() {
-  const canvasRef = useRef(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const offsetRef = useRef(0)
-  const rafRef = useRef(null)
+  const rafRef = useRef<number | null>(null)
   const lastScrollRef = useRef(0)
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
+    if (!ctx) return
     const { width, height } = canvas
     const offset = offsetRef.current % DOT_SPACING
 
@@ -39,6 +40,7 @@ export default function DotGrid() {
     canvas.width = rect.width * dpr
     canvas.height = rect.height * dpr
     const ctx = canvas.getContext('2d')
+    if (!ctx) return
     ctx.scale(dpr, dpr)
     canvas.style.width = rect.width + 'px'
     canvas.style.height = rect.height + 'px'
@@ -71,8 +73,8 @@ export default function DotGrid() {
 
   // Expose a method for internal container scroll parallax
   useEffect(() => {
-    const handler = (e) => {
-      const delta = e.detail?.delta || 0
+    const handler = (e: Event) => {
+      const delta = (e as CustomEvent<{ delta: number }>).detail?.delta || 0
       offsetRef.current += delta * 0.3
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(draw)

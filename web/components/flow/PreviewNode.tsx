@@ -4,7 +4,11 @@ import { Handle, Position } from '@xyflow/react'
 import { motion } from 'framer-motion'
 import { ExternalLink, Globe } from 'lucide-react'
 
-export default function PreviewNode({ data }) {
+interface PreviewNodeProps {
+  data: { url: string }
+}
+
+export default function PreviewNode({ data }: PreviewNodeProps) {
   const { url } = data
 
   return (

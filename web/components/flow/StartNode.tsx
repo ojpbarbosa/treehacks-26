@@ -2,7 +2,6 @@
 
 import { Handle, Position } from '@xyflow/react'
 import { motion } from 'framer-motion'
-import { Zap } from 'lucide-react'
 
 export default function StartNode() {
   return (

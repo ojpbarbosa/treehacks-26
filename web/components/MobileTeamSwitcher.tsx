@@ -2,7 +2,20 @@
 
 import { ChevronLeft, ChevronRight, Grid3x3 } from 'lucide-react'
 
-export default function MobileTeamSwitcher({ teams, activeIndex, onSelect, showGrid, onToggleGrid }) {
+interface Team {
+  id: string
+  name: string
+}
+
+interface MobileTeamSwitcherProps {
+  teams: Team[]
+  activeIndex: number
+  onSelect: (index: number) => void
+  showGrid: boolean
+  onToggleGrid: () => void
+}
+
+export default function MobileTeamSwitcher({ teams, activeIndex, onSelect, showGrid, onToggleGrid }: MobileTeamSwitcherProps) {
   return (
     <div className="flex items-center justify-between px-4 py-2 border-b border-border-green bg-bg-dark/90 backdrop-blur-md lg:hidden">
       <button

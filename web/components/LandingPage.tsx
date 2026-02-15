@@ -65,7 +65,7 @@ const PREVIEW_TEAMS = [
   },
 ]
 
-const TYPE_COLORS = {
+const TYPE_COLORS: Record<string, string> = {
   Pivot: 'bg-amber-500/20 text-amber-400/80 border-amber-500/20',
   Breakthrough: 'bg-emerald-500/20 text-emerald-400/80 border-emerald-500/20',
   Risk: 'bg-red-500/20 text-red-400/80 border-red-500/20',
@@ -73,7 +73,20 @@ const TYPE_COLORS = {
   Shipping: 'bg-purple-500/20 text-purple-400/80 border-purple-500/20',
 }
 
-function PreviewPane({ team, col, row }) {
+interface PreviewTeam {
+  name: string
+  status: string
+  statusColor: string
+  events: { type: string; text: string }[]
+}
+
+interface PreviewPaneProps {
+  team: PreviewTeam
+  col: number
+  row: number
+}
+
+function PreviewPane({ team, col, row }: PreviewPaneProps) {
   const borders = [
     row === 0 ? 'border-b border-border-green/25' : '',
     col < 2 ? 'border-r border-border-green/25' : '',
@@ -133,7 +146,11 @@ function DashboardPreview() {
   )
 }
 
-export default function LandingPage({ onStart }) {
+interface LandingPageProps {
+  onStart: () => void
+}
+
+export default function LandingPage({ onStart }: LandingPageProps) {
   const [isHovered, setIsHovered] = useState(false)
 
   return (

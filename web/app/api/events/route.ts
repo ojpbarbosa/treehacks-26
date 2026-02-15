@@ -1,14 +1,15 @@
-import { getEventsSince, addClient, removeClient } from '../../../lib/store'
+import { NextRequest } from 'next/server'
+import { getEventsSince, addClient, removeClient, type AppEvent, type ClientCallback } from '../../../lib/store'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-export async function GET(request) {
+export async function GET(request: NextRequest): Promise<Response> {
   const { searchParams } = new URL(request.url)
   const lastId = parseInt(searchParams.get('lastId') || '0', 10)
   const encoder = new TextEncoder()
 
-  let sendFn
+  let sendFn: ClientCallback | undefined
 
   const stream = new ReadableStream({
     start(controller) {
@@ -19,11 +20,11 @@ export async function GET(request) {
       }
 
       // Register for new events
-      sendFn = (event) => {
+      sendFn = (event: AppEvent) => {
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
         } catch {
-          removeClient(sendFn)
+          if (sendFn) removeClient(sendFn)
         }
       }
       addClient(sendFn)

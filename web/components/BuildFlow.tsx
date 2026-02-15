@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { ReactFlow, Background, Controls, MarkerType } from '@xyflow/react'
+import { ReactFlow, Background, Controls, MarkerType, type Node, type Edge } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 
 import StartNode from './flow/StartNode'
@@ -16,11 +16,13 @@ const nodeTypes = {
   judgingNode: JudgingNode,
 }
 
-const edgeDefaults = {
+const edgeDefaults: Partial<Edge> = {
   animated: true,
   style: { stroke: 'rgba(3, 141, 57, 0.4)', strokeWidth: 1.5 },
   markerEnd: { type: MarkerType.ArrowClosed, color: 'rgba(3, 141, 57, 0.4)' },
 }
+
+import type { Job } from '../hooks/useJobStream'
 
 const BUILD_X = 350
 const PREVIEW_X = 750
@@ -28,9 +30,9 @@ const JUDGING_X = 1150
 const VERTICAL_SPACING = 420
 const VERTICAL_OFFSET = 40
 
-function buildFlowElements(jobs) {
-  const nodes = []
-  const edges = []
+function buildFlowElements(jobs: Job[]): { nodes: Node[]; edges: Edge[] } {
+  const nodes: Node[] = []
+  const edges: Edge[] = []
 
   // Calculate vertical centering
   const totalHeight = jobs.length > 0 ? (jobs.length - 1) * VERTICAL_SPACING : 0
@@ -65,7 +67,7 @@ function buildFlowElements(jobs) {
       source: 'start',
       target: buildId,
       ...edgeDefaults,
-    })
+    } as Edge)
 
     // Preview node (if deployed)
     if (job.deploymentUrl) {
@@ -83,7 +85,7 @@ function buildFlowElements(jobs) {
         target: previewId,
         ...edgeDefaults,
         style: { stroke: 'rgba(3, 141, 57, 0.6)', strokeWidth: 2 },
-      })
+      } as Edge)
 
       // Edge: preview → judging
       edges.push({
@@ -91,7 +93,7 @@ function buildFlowElements(jobs) {
         source: previewId,
         target: 'judging',
         ...edgeDefaults,
-      })
+      } as Edge)
     } else {
       // Edge: build → judging (dashed, waiting)
       edges.push({
@@ -102,7 +104,7 @@ function buildFlowElements(jobs) {
         animated: false,
         style: { stroke: 'rgba(3, 141, 57, 0.15)', strokeWidth: 1, strokeDasharray: '4 4' },
         markerEnd: { type: MarkerType.ArrowClosed, color: 'rgba(3, 141, 57, 0.15)' },
-      })
+      } as Edge)
     }
   })
 
@@ -117,7 +119,11 @@ function buildFlowElements(jobs) {
   return { nodes, edges }
 }
 
-export default function BuildFlow({ jobs }) {
+interface BuildFlowProps {
+  jobs: Job[]
+}
+
+export default function BuildFlow({ jobs }: BuildFlowProps) {
   const { nodes, edges } = useMemo(() => buildFlowElements(jobs), [jobs])
 
   return (

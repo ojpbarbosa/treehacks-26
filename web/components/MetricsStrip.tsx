@@ -7,9 +7,13 @@ const METRICS = [
   { key: 'novelty', label: 'NOVL', color: '#22d3ee' },
   { key: 'demoReadiness', label: 'DEMO', color: '#f59e0b' },
   { key: 'marketClarity', label: 'MRKT', color: '#a78bfa' },
-]
+] as const
 
-export default function MetricsStrip({ metrics }) {
+interface MetricsStripProps {
+  metrics: Record<string, number>
+}
+
+export default function MetricsStrip({ metrics }: MetricsStripProps) {
   return (
     <div className="flex gap-3 px-4 py-2.5 mt-auto">
       {METRICS.map(m => (

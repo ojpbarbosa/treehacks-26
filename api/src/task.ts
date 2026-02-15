@@ -28,18 +28,12 @@ function generateId(): string {
 export async function runTask(
   input: TaskInput,
   obs: ObservabilityHandlers,
-  state: ServerState,
+  state: ServerState | null = null,
 ): Promise<{ success: boolean }> {
   log.treemux("Task: " + input.taskDescription);
   log.treemux("Workers: " + input.workers);
   log.treemux("Callback base: " + CALLBACK_BASE_URL);
   log.treemux("Implementation: " + (USE_MODAL ? "Modal" : "mock"));
-
-  // Reset state for this run
-  state.totalJobs = input.workers;
-  state.doneCount = 0;
-  state.results = [];
-  state.deploymentUrls = {};
 
   // ── Ideation ──────────────────────────────────────────────────
   log.treemux("Running ideation (single OpenRouter call)...");
@@ -60,6 +54,11 @@ export async function runTask(
   // ── GitHub repo + branches + Vercel deployments ───────────────
   const jobs: ImplementationJob[] = [];
   const repo = await createRepo(`treemux-${generateId()}`);
+  if (state) {
+    state.jobsPerRepoUrl.set(repo.cloneUrl, input.workers);
+    state.results = [];
+    state.completedJobs = new Map();
+  }
 
   for (let i = 0; i < ideas.length; i++) {
     const idea = ideas[i]!;
@@ -85,7 +84,7 @@ export async function runTask(
                 ref: branch,
               });
               const url = deploy.url || `https://${deploy.deploymentId}.vercel.app`;
-              state.deploymentUrls![jobId] = url;
+
               log.vercel("Deployment endpoint for " + jobId + " (branch " + branch + "): " + url);
               obs.broadcast({ type: "JOB_DEPLOYMENT", payload: { jobId, url } });
               await disableDeploymentProtection(repoName).catch((e) =>

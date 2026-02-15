@@ -3,7 +3,7 @@
 import { useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const TYPE_STYLES = {
+const TYPE_STYLES: Record<string, string> = {
   Pivot: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   Breakthrough: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
   Risk: 'bg-red-500/20 text-red-400 border-red-500/30',
@@ -11,8 +11,19 @@ const TYPE_STYLES = {
   Shipping: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
 }
 
-export default function EventFeed({ events }) {
-  const scrollRef = useRef(null)
+interface FeedEvent {
+  id?: string
+  hour: number
+  type: string
+  text: string
+}
+
+interface EventFeedProps {
+  events: FeedEvent[]
+}
+
+export default function EventFeed({ events }: EventFeedProps) {
+  const scrollRef = useRef<HTMLDivElement>(null)
   const prevCountRef = useRef(events.length)
 
   // Auto-scroll to top when new events arrive (newest first)
@@ -26,9 +37,9 @@ export default function EventFeed({ events }) {
   return (
     <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-2 min-h-0">
       <AnimatePresence mode="popLayout">
-        {events.map(event => (
+        {events.map((event, i) => (
           <motion.div
-            key={event.id}
+            key={event.id ?? i}
             layout
             initial={{ opacity: 0, y: -8, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}

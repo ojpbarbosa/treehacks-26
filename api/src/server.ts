@@ -7,8 +7,6 @@
 
 import type { TaskInput, ServerState, JobStartedPayload, JobStepLogPayload, JobDonePayload, JobErrorPayload, JobPushPayload, JobDeploymentPayload } from "./types.ts";
 import { getObservabilityHandlers } from "./observability.ts";
-import { createDeployment } from "./vercel.ts";
-import { parseRepoFullName } from "./github.ts";
 import { EVALUATOR_WEBHOOK_URL } from "./config.ts";
 import { runTask } from "./task.ts";
 import { log } from "./logger.ts";
@@ -19,10 +17,9 @@ const PORT = parseInt(process.env.PORT ?? "3000", 10);
 const obs = getObservabilityHandlers(PORT);
 
 const state: ServerState = {
-  totalJobs: 0,
-  doneCount: 0,
+  jobsPerRepoUrl: new Map(),
+  completedJobs: new Map(),
   results: [],
-  deploymentUrls: {},
   async onAllDone(results) {
     log.treemux("All deployments done: " + results.length);
     if (EVALUATOR_WEBHOOK_URL) {
@@ -143,7 +140,7 @@ async function handleDeployment(req: Request): Promise<Response> {
     return new Response("Invalid JSON", { status: 400 });
   }
   log.server("JOB_DEPLOYMENT " + body.jobId + " url=" + body.url);
-  if (state.deploymentUrls) state.deploymentUrls[body.jobId] = body.url;
+
   obs.broadcast({ type: "JOB_DEPLOYMENT", payload: body });
   return new Response(JSON.stringify({ ok: true }), {
     headers: { "Content-Type": "application/json" },
@@ -163,37 +160,20 @@ async function handleDone(req: Request): Promise<Response> {
   log.server("JOB_DONE " + body.jobId + " success=" + body.success);
   obs.broadcast({ type: "JOB_DONE", payload: body });
 
-  let url = state.deploymentUrls?.[body.jobId] ?? body.repoUrl;
-  if (body.success && body.repoUrl && !state.deploymentUrls?.[body.jobId] && process.env.VERCEL_TOKEN) {
-    try {
-      const [org, repo] = parseRepoFullName(body.repoUrl);
-      if (org && repo) {
-        const ref = body.branch ?? "main";
-        const deploy = await createDeployment({
-          name: `treemux-${body.jobId}`,
-          org,
-          repo,
-          ref,
-        });
-        url = deploy.url || (deploy.deploymentId ? `https://${deploy.deploymentId}.vercel.app` : body.repoUrl);
-        obs.broadcast({ type: "JOB_DEPLOYMENT", payload: { jobId: body.jobId, url } });
-      }
-    } catch (e) {
-      log.warn("Vercel deploy failed for " + body.jobId + " " + String(e));
-    }
-  }
-  if (url) {
-    log.server("Deployment endpoint " + body.jobId + ": " + url);
-  }
+  state.results.push({ url: body.repoUrl, idea: body.idea ?? "", pitch: body.pitch ?? "", repoUrl: body.repoUrl });
 
-  state.results.push({ url: url || body.repoUrl, idea: body.idea ?? "", pitch: body.pitch ?? "" });
-  state.doneCount += 1;
-  log.server("progress " + state.doneCount + " / " + state.totalJobs);
+  state.completedJobs.set(body.repoUrl, (state.completedJobs.get(body.repoUrl) ?? 0) + 1);
 
-  if (state.doneCount >= state.totalJobs) {
-    log.server("all implementations done, firing evaluator webhook");
+  const repoCompletedJobs = state.completedJobs.get(body.repoUrl) ?? 0;
+  const repoJobs = state.jobsPerRepoUrl.get(body.repoUrl) ?? 0;
+  log.server("progress " + repoCompletedJobs + " / " + repoJobs);
+
+  if (repoCompletedJobs === repoJobs) {
+    log.server("all implementations done for " + body.repoUrl + ", firing eval3uator webhook");
     obs.broadcast({ type: "ALL_DONE", payload: { results: state.results } });
-    await state.onAllDone?.(state.results);
+    await state.onAllDone?.(state.results.filter((result) => result.url !== body.repoUrl));
+  } else {
+    log.server("progress " + repoCompletedJobs + " / " + repoJobs);
   }
 
   return new Response(JSON.stringify({ ok: true }), {

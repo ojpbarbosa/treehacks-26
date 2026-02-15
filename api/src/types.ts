@@ -143,9 +143,8 @@ export type WebhookPayload = DeploymentResult[];
 export type OnAllDone = (results: { url: string; idea: string; pitch: string }[]) => void | Promise<void>;
 
 export interface ServerState {
-  totalJobs: number;
-  doneCount: number;
+  jobsPerRepoUrl: Map<string, number>;
+  completedJobs: Map<string, number>;
   results: { url: string; idea: string; pitch: string }[];
-  deploymentUrls?: Record<string, string>;
   onAllDone?: OnAllDone;
 }

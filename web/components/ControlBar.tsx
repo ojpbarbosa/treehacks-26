@@ -1,12 +1,32 @@
 'use client'
 
-import { Play, Pause, SkipForward } from 'lucide-react'
+import { Play, Pause } from 'lucide-react'
 import { motion } from 'framer-motion'
 
-const SPEED_OPTIONS = [1, 2, 5, 10]
-const JUMP_HOURS = [0, 12, 24, 36]
+const SPEED_OPTIONS = [1, 2, 5, 10] as const
+const JUMP_HOURS = [0, 12, 24, 36] as const
 
-export default function ControlBar({ simHour, isPlaying, speed, onPlay, onPause, onSpeedChange, onJumpToHour, onViewResults }) {
+interface ControlBarProps {
+  simHour: number
+  isPlaying: boolean
+  speed: number
+  onPlay: () => void
+  onPause: () => void
+  onSpeedChange: (speed: number) => void
+  onJumpToHour: (hour: number) => void
+  onViewResults?: () => void
+}
+
+export default function ControlBar({
+  simHour,
+  isPlaying,
+  speed,
+  onPlay,
+  onPause,
+  onSpeedChange,
+  onJumpToHour,
+  onViewResults,
+}: ControlBarProps) {
   const progress = (simHour / 36) * 100
 
   return (

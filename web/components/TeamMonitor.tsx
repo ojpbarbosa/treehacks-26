@@ -5,7 +5,7 @@ import { Lightbulb } from 'lucide-react'
 import MilestoneTimeline from './MilestoneTimeline'
 import EventFeed from './EventFeed'
 
-const STATUS_COLORS = {
+const STATUS_COLORS: Record<string, string> = {
   'Ideating': 'text-blue-400',
   'Prototyping': 'text-cyan-400',
   'Building MVP': 'text-primary',
@@ -14,7 +14,26 @@ const STATUS_COLORS = {
   'Final Push': 'text-red-400',
 }
 
-export default function TeamMonitor({ team }) {
+interface TeamIdea {
+  title: string
+  pitch?: string
+  direction?: string
+}
+
+interface Team {
+  name: string
+  status: string
+  chips: string[]
+  currentIdea: TeamIdea | null
+  milestones: { id: string; label: string; completed: boolean }[]
+  events: { type: string; text: string; hour: number }[]
+}
+
+interface TeamMonitorProps {
+  team: Team
+}
+
+export default function TeamMonitor({ team }: TeamMonitorProps) {
   const idea = team.currentIdea
 
   return (

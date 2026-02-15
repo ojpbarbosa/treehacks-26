@@ -3,7 +3,17 @@
 import { motion } from 'framer-motion'
 import { Check, Circle } from 'lucide-react'
 
-export default function MilestoneTimeline({ milestones }) {
+interface Milestone {
+  id: string
+  label: string
+  completed: boolean
+}
+
+interface MilestoneTimelineProps {
+  milestones: Milestone[]
+}
+
+export default function MilestoneTimeline({ milestones }: MilestoneTimelineProps) {
   return (
     <div className="px-3 py-2">
       <div className="flex items-center gap-0.5 overflow-x-auto">
