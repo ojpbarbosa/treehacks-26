@@ -9,6 +9,7 @@ import type { TaskInput, ServerState, JobStartedPayload, JobStepLogPayload, JobD
 import { getObservabilityHandlers } from "./observability.ts";
 import { EVALUATOR_WEBHOOK_URL } from "./config.ts";
 import { runTask } from "./task.ts";
+import { runEvaluation } from "./eval-bridge.ts";
 import { log } from "./logger.ts";
 import { customAlphabet } from "nanoid";
 
@@ -39,6 +40,8 @@ const state: ServerState = {
   results: [],
   async onAllDone(payload) {
     log.treemux("All deployments done: " + payload.builds.length + " builds, evaluator=" + (payload.evaluator ? "yes" : "none"));
+
+    // Fire legacy evaluator webhook if configured
     if (EVALUATOR_WEBHOOK_URL) {
       log.treemux("Sending evaluator webhook to " + EVALUATOR_WEBHOOK_URL);
       const res = await fetch(EVALUATOR_WEBHOOK_URL, {
@@ -47,8 +50,13 @@ const state: ServerState = {
         body: JSON.stringify(payload),
       });
       log.treemux("Evaluator webhook response " + res.status);
-    } else {
-      log.treemux("No EVALUATOR_WEBHOOK_URL set, skipping evaluator webhook");
+    }
+
+    // Kick off the eval-agent evaluation (runs async, streams progress via WS)
+    if (payload.evaluator) {
+      runEvaluation(payload, obs).catch((e) =>
+        log.error("Evaluation bridge error: " + String(e))
+      );
     }
   },
 };

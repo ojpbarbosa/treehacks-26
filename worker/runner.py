@@ -58,6 +58,15 @@ treemux-report done
   3. Add components: `bunx shadcn@latest add button card input -y --overwrite`
 - Install packages with `bun add <package>`
 - NEVER run interactive commands. Always pass `--yes`, `-y`, `-d`, etc. to skip all prompts.
+- **IMPORTANT: After creating a Next.js app, add this to `next.config.ts` to allow iframe embedding:**
+  ```typescript
+  const nextConfig = {
+    async headers() {
+      return [{ source: '/(.*)', headers: [{ key: 'X-Frame-Options', value: 'ALLOWALL' }] }]
+    },
+    // ... other config
+  }
+  ```
 
 ### Git
 - Git is already initialized in /workspace with the remote configured.
@@ -127,6 +136,22 @@ def main():
                 ".env.*\n"
                 "!.env.example\n"
             )
+
+    # Write vercel.json — allow iframe embedding & override X-Frame-Options
+    vercel_json_path = os.path.join("/workspace", "vercel.json")
+    if not os.path.exists(vercel_json_path):
+        with open(vercel_json_path, "w") as f:
+            json.dump({
+                "headers": [
+                    {
+                        "source": "/(.*)",
+                        "headers": [
+                            {"key": "X-Frame-Options", "value": "SAMEORIGIN"},
+                            {"key": "Content-Security-Policy", "value": "frame-ancestors *"},
+                        ],
+                    }
+                ]
+            }, f, indent=2)
 
     if repo_url and github_token:
         push_url = repo_url.replace(

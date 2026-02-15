@@ -1,8 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { motion } from 'framer-motion'
-import { ExternalLink, Globe } from 'lucide-react'
+import { ExternalLink, Globe, AlertTriangle } from 'lucide-react'
 
 interface DeployNodeProps {
   data: { url: string; index: number }
@@ -10,6 +11,7 @@ interface DeployNodeProps {
 
 export default function DeployNode({ data }: DeployNodeProps) {
   const { url, index } = data
+  const [iframeError, setIframeError] = useState(false)
 
   return (
     <div className="relative">
@@ -36,21 +38,54 @@ export default function DeployNode({ data }: DeployNodeProps) {
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 text-[8px] font-mono text-text-muted hover:text-cream transition-colors"
+            className="nopan nodrag flex items-center gap-1 text-[8px] font-mono text-text-muted hover:text-cream transition-colors cursor-pointer"
           >
             Open <ExternalLink size={8} />
           </a>
         </div>
 
-        {/* Iframe preview */}
+        {/* Preview area */}
         <div className="w-[280px] h-[170px] bg-bg-dark relative">
-          <iframe
-            src={url}
-            title="Live preview"
-            className="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin"
-          />
-          <div className="absolute inset-0 pointer-events-none border border-primary/10" />
+          {iframeError ? (
+            /* Fallback when iframe is blocked by X-Frame-Options */
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="nopan nodrag absolute inset-0 flex flex-col items-center justify-center gap-2 hover:bg-primary/5 transition-colors cursor-pointer"
+            >
+              <AlertTriangle size={16} className="text-amber-400/60" />
+              <span className="text-[9px] font-mono text-text-muted text-center px-4">
+                Preview blocked by site policy
+              </span>
+              <span className="text-[9px] font-mono text-primary flex items-center gap-1">
+                Open in new tab <ExternalLink size={8} />
+              </span>
+            </a>
+          ) : (
+            <>
+              <iframe
+                src={url}
+                title="Live preview"
+                className="w-full h-full border-0"
+                sandbox="allow-scripts allow-same-origin"
+                onError={() => setIframeError(true)}
+                onLoad={(e) => {
+                  // Detect X-Frame-Options block: if the iframe loaded but has no content
+                  // we can't reliably detect this cross-origin, so we just show the iframe.
+                  // The onError handler catches network-level failures.
+                  try {
+                    const frame = e.currentTarget
+                    // If contentDocument is null (cross-origin), that's expected and fine
+                    if (frame.contentDocument === null) return
+                  } catch {
+                    // Cross-origin access error — expected, iframe is working
+                  }
+                }}
+              />
+              <div className="absolute inset-0 pointer-events-none border border-primary/10" />
+            </>
+          )}
         </div>
 
         {/* URL */}

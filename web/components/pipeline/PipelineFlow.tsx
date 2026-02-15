@@ -16,6 +16,7 @@ import '@xyflow/react/dist/style.css'
 import TaskNode from './TaskNode'
 import WorkerNode from './WorkerNode'
 import DeployNode from './DeployNode'
+import PitchNode from './PitchNode'
 import JudgeNode from './JudgeNode'
 import WaitingNode from './WaitingNode'
 
@@ -25,6 +26,8 @@ import type {
   EvaluatorSpec,
   DeploymentResult,
   TaskPhase,
+  EvalProgress,
+  EvalResults,
 } from '../../hooks/useTaskStream'
 
 // ─── Node type registry ─────────────────────────────────────────
@@ -33,6 +36,7 @@ const nodeTypes = {
   taskNode: TaskNode,
   workerNode: WorkerNode,
   deployNode: DeployNode,
+  pitchNode: PitchNode,
   judgeNode: JudgeNode,
   waitingNode: WaitingNode,
 }
@@ -42,7 +46,8 @@ const nodeTypes = {
 const COL_TASK = 0
 const COL_WORKER = 380
 const COL_DEPLOY = 740
-const COL_JUDGE = 1100
+const COL_PITCH = 1080
+const COL_JUDGE = 1420
 const ROW_SPACING = 340
 const ROW_OFFSET = 50
 
@@ -64,20 +69,29 @@ const EDGE_DASHED: Partial<Edge> = {
   markerEnd: { type: MarkerType.ArrowClosed, color: 'rgba(3, 141, 57, 0.12)' },
 }
 
+const EDGE_PITCH: Partial<Edge> = {
+  animated: true,
+  style: { stroke: 'rgba(217, 165, 32, 0.4)', strokeWidth: 1.5 },
+  markerEnd: { type: MarkerType.ArrowClosed, color: 'rgba(217, 165, 32, 0.4)' },
+}
+
 // ─── Build nodes & edges from state ─────────────────────────────
 
-interface PipelineState {
+export interface PipelineState {
   phase: TaskPhase
   taskDescription: string
   ideas: IdeationIdea[]
   jobs: Job[]
+  workerDescriptions: string[]
   allDonePayload: { evaluator: EvaluatorSpec | null; builds: DeploymentResult[] } | null
   workerCount: number
   evaluator: EvaluatorSpec | null
+  evalProgress: EvalProgress[]
+  evalResults: EvalResults | null
 }
 
 function buildElements(state: PipelineState): { nodes: Node[]; edges: Edge[] } {
-  const { phase, taskDescription, ideas, jobs, allDonePayload, workerCount, evaluator } = state
+  const { phase, taskDescription, ideas, jobs, allDonePayload, workerCount, evaluator, workerDescriptions } = state
   const nodes: Node[] = []
   const edges: Edge[] = []
 
@@ -107,7 +121,7 @@ function buildElements(state: PipelineState): { nodes: Node[]; edges: Edge[] } {
         id: workerId,
         type: 'workerNode',
         position: { x: COL_WORKER, y },
-        data: { job, index: i },
+        data: { job, index: i, workerProfile: workerDescriptions[i] },
       })
       edges.push({
         id: `task-${workerId}`,
@@ -132,13 +146,37 @@ function buildElements(state: PipelineState): { nodes: Node[]; edges: Edge[] } {
           ...EDGE_ACTIVE,
           style: { stroke: 'rgba(3, 141, 57, 0.6)', strokeWidth: 2 },
         } as Edge)
-        // deploy → judge
-        edges.push({
-          id: `${deployId}-judge`,
-          source: deployId,
-          target: 'judge',
-          ...EDGE_STYLE,
-        } as Edge)
+
+        // ── Column 3: Pitch (after JOB_DONE with pitch) ─────
+        if (job.pitch) {
+          const pitchId = `pitch-${job.jobId}`
+          nodes.push({
+            id: pitchId,
+            type: 'pitchNode',
+            position: { x: COL_PITCH, y },
+            data: { pitch: job.pitch, workerProfile: workerDescriptions[i], index: i },
+          })
+          edges.push({
+            id: `${deployId}-${pitchId}`,
+            source: deployId,
+            target: pitchId,
+            ...EDGE_PITCH,
+          } as Edge)
+          edges.push({
+            id: `${pitchId}-judge`,
+            source: pitchId,
+            target: 'judge',
+            ...EDGE_PITCH,
+          } as Edge)
+        } else {
+          // deploy → judge directly
+          edges.push({
+            id: `${deployId}-judge`,
+            source: deployId,
+            target: 'judge',
+            ...EDGE_STYLE,
+          } as Edge)
+        }
       } else {
         // worker → judge (dashed, waiting for deploy)
         edges.push({
@@ -172,7 +210,7 @@ function buildElements(state: PipelineState): { nodes: Node[]; edges: Edge[] } {
     }
   }
 
-  // ── Column 3: Judge ───────────────────────────────────────
+  // ── Column 4: Judge ───────────────────────────────────────
   const deployedCount = jobs.filter(j => j.status === 'deployed').length
   nodes.push({
     id: 'judge',
@@ -182,6 +220,7 @@ function buildElements(state: PipelineState): { nodes: Node[]; edges: Edge[] } {
       evaluator: allDonePayload?.evaluator ?? evaluator,
       builds: allDonePayload?.builds ?? [],
       done: phase === 'done',
+      evaluating: phase === 'evaluating',
       deployedCount,
       totalJobs: jobs.length || workerCount,
     },
@@ -201,8 +240,7 @@ function PipelineFlowInner(props: PipelineState) {
   useEffect(() => {
     if (nodes.length !== prevNodeCount.current) {
       prevNodeCount.current = nodes.length
-      // Small delay to let React Flow render the new nodes
-      const t = setTimeout(() => fitView({ padding: 0.25, duration: 400 }), 80)
+      const t = setTimeout(() => fitView({ padding: 0.4, duration: 400 }), 80)
       return () => clearTimeout(t)
     }
   }, [nodes.length, fitView])
@@ -213,9 +251,10 @@ function PipelineFlowInner(props: PipelineState) {
       edges={edges}
       nodeTypes={nodeTypes}
       fitView
-      fitViewOptions={{ padding: 0.25 }}
-      minZoom={0.15}
-      maxZoom={1.5}
+      fitViewOptions={{ padding: 0.4 }}
+      minZoom={0.1}
+      maxZoom={1.2}
+      defaultViewport={{ x: 0, y: 0, zoom: 0.6 }}
       proOptions={{ hideAttribution: true }}
       nodesDraggable={false}
       nodesConnectable={false}
@@ -223,7 +262,7 @@ function PipelineFlowInner(props: PipelineState) {
       panOnScroll
       zoomOnScroll
     >
-      <Background color="rgba(3, 141, 57, 0.06)" gap={32} size={1} />
+      <Background color="rgba(3, 141, 57, 0.08)" gap={32} size={1} />
       <Controls
         showInteractive={false}
         className="!bg-bg-dark/80 !border-border-green !rounded-lg"

@@ -14,6 +14,7 @@
   "dependencies": {
     "@vercel/sdk": "^1.19.1",
     "chalk": "^5.6.2",
+    "eval-agent": "file:../eval",
     "nanoid": "^5.1.6"
   }
 }

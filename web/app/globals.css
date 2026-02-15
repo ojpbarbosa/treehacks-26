@@ -47,3 +47,13 @@
     background: rgba(3, 141, 57, 0.5);
   }
 }
+
+/* React Flow: clickable elements inside nodes override grab */
+.react-flow__node .nopan {
+  cursor: pointer !important;
+}
+
+/* Lighter green tone for the flow canvas area */
+.pipeline-canvas {
+  background-color: #001f10;
+}

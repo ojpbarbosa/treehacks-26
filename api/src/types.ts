@@ -69,11 +69,35 @@ export type WsEvent =
   | { type: "JOB_ERROR"; payload: JobErrorPayload }
   | { type: "JOB_PUSH"; payload: JobPushPayload }
   | { type: "JOB_DEPLOYMENT"; payload: JobDeploymentPayload }
-  | { type: "ALL_DONE"; payload: AllDonePayload };
+  | { type: "ALL_DONE"; payload: AllDonePayload }
+  | { type: "EVAL_PROGRESS"; payload: EvalProgressPayload }
+  | { type: "EVAL_COMPLETE"; payload: EvalCompletePayload };
+
+/** Eval progress event forwarded from evaluator */
+export interface EvalProgressPayload {
+  taskId: string;
+  eventType: string;
+  message: string;
+  projectName?: string;
+  judgeName?: string;
+  score?: number;
+}
+
+/** Final eval results */
+export interface EvalCompletePayload {
+  taskId: string;
+  rankings: Array<{
+    projectName: string;
+    compositeScore: number;
+    overallScores: Record<string, number>;
+  }>;
+  summary: string;
+}
 
 export interface IdeationDonePayload {
   taskId: string;
   ideas: IdeationIdea[];
+  workerDescriptions?: string[];
 }
 
 /** Sent when the sandbox starts — includes plan + context for the UI pipeline */

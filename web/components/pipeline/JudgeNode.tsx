@@ -10,13 +10,14 @@ interface JudgeNodeProps {
     evaluator: EvaluatorSpec | null
     builds: DeploymentResult[]
     done: boolean
+    evaluating?: boolean
     deployedCount: number
     totalJobs: number
   }
 }
 
 export default function JudgeNode({ data }: JudgeNodeProps) {
-  const { evaluator, builds, done, deployedCount, totalJobs } = data
+  const { evaluator, builds, done, evaluating, deployedCount, totalJobs } = data
   const allReady = totalJobs > 0 && deployedCount === totalJobs
 
   return (
@@ -33,7 +34,7 @@ export default function JudgeNode({ data }: JudgeNodeProps) {
         className={`px-5 py-4 rounded-xl border backdrop-blur-md w-[220px] ${
           done
             ? 'border-yellow-400/50 bg-yellow-400/5'
-            : allReady
+            : evaluating || allReady
             ? 'border-yellow-400/30 bg-yellow-400/3'
             : 'border-border-green/40 bg-bg-dark/90'
         }`}
@@ -65,7 +66,7 @@ export default function JudgeNode({ data }: JudgeNodeProps) {
           </p>
         )}
 
-        {done ? (
+        {done && !evaluating ? (
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
@@ -79,7 +80,7 @@ export default function JudgeNode({ data }: JudgeNodeProps) {
               </div>
             ))}
           </div>
-        ) : allReady ? (
+        ) : evaluating || allReady ? (
           <div className="flex items-center gap-1.5">
             <motion.div
               animate={{ rotate: 360 }}

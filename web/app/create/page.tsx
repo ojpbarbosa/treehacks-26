@@ -1,13 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Play, Sparkles, Plus, Minus, ChevronDown, ChevronUp,
-  Loader2, AlertCircle, Zap, RotateCcw,
+  Loader2, AlertCircle, Zap, RotateCcw, Scale,
 } from 'lucide-react'
 import { useTaskStream, type TaskInput } from '../../hooks/useTaskStream'
 import PipelineFlow from '../../components/pipeline/PipelineFlow'
+import EvalSidebar from '../../components/pipeline/EvalSidebar'
 
 // ─── TreeHacks prefill ──────────────────────────────────────────
 
@@ -34,6 +35,7 @@ const PHASE_LABELS: Record<string, { label: string; color: string }> = {
   ideation: { label: 'Ideation', color: 'text-cyan-400' },
   building: { label: 'Building', color: 'text-primary' },
   done: { label: 'Complete', color: 'text-emerald-400' },
+  evaluating: { label: 'Evaluating', color: 'text-yellow-400' },
   error: { label: 'Error', color: 'text-red-400' },
 }
 
@@ -51,9 +53,17 @@ export default function CreatePage() {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [submittedEvaluator, setSubmittedEvaluator] = useState<TaskInput['evaluator']>(undefined)
   const [submittedWorkerCount, setSubmittedWorkerCount] = useState(0)
+  const [evalSidebarOpen, setEvalSidebarOpen] = useState(false)
 
   const isFormPhase = phase === 'idle' || phase === 'error'
   const isPipeline = !isFormPhase
+
+  // Auto-open sidebar when evaluating starts or results arrive
+  useEffect(() => {
+    if ((phase === 'evaluating' || stream.evalResults) && !evalSidebarOpen) {
+      setEvalSidebarOpen(true)
+    }
+  }, [phase, stream.evalResults])
 
   function prefillTreeHacks() {
     setTaskDescription(TREEHACKS_PREFILL.taskDescription)
@@ -97,6 +107,7 @@ export default function CreatePage() {
     setEvalCriteria('')
     setSubmittedEvaluator(undefined)
     setSubmittedWorkerCount(0)
+    setEvalSidebarOpen(false)
   }
 
   return (
@@ -119,7 +130,7 @@ export default function CreatePage() {
           <div className="flex items-center gap-3">
             {/* Phase badge */}
             <div className="flex items-center gap-1.5">
-              {(phase === 'creating' || phase === 'building') && (
+              {(phase === 'creating' || phase === 'building' || phase === 'evaluating') && (
                 <Loader2 size={10} className="animate-spin text-primary" />
               )}
               <span className={`text-[10px] font-mono ${PHASE_LABELS[phase]?.color ?? 'text-text-muted'}`}>
@@ -131,6 +142,19 @@ export default function CreatePage() {
               <span className="text-[8px] font-mono text-text-muted bg-bg-card px-2 py-0.5 rounded border border-border-green/30">
                 {taskId.slice(0, 12)}
               </span>
+            )}
+
+            {/* Eval sidebar toggle */}
+            {isPipeline && (phase === 'done' || phase === 'evaluating' || stream.evalProgress.length > 0) && (
+              <button
+                onClick={() => setEvalSidebarOpen(!evalSidebarOpen)}
+                className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                  evalSidebarOpen ? 'text-yellow-400 bg-yellow-400/10' : 'text-text-muted hover:text-cream hover:bg-border-green/10'
+                }`}
+                title="Evaluation"
+              >
+                <Scale size={12} />
+              </button>
             )}
 
             {isPipeline && (
@@ -288,21 +312,33 @@ export default function CreatePage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="w-full h-full"
+              className="w-full h-full pipeline-canvas"
             >
               <PipelineFlow
                 phase={phase}
                 taskDescription={stream.taskDescription}
                 ideas={stream.ideas}
                 jobs={stream.jobs}
+                workerDescriptions={stream.workerDescriptions}
                 allDonePayload={stream.allDonePayload}
                 workerCount={submittedWorkerCount}
                 evaluator={submittedEvaluator ?? null}
+                evalProgress={stream.evalProgress}
+                evalResults={stream.evalResults}
               />
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      {/* ── Eval Sidebar ────────────────────────────────────── */}
+      <EvalSidebar
+        open={evalSidebarOpen}
+        onClose={() => setEvalSidebarOpen(false)}
+        evalProgress={stream.evalProgress}
+        evalResults={stream.evalResults}
+        evaluating={phase === 'evaluating'}
+      />
     </div>
   )
 }

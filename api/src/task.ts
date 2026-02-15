@@ -40,11 +40,11 @@ export async function runTask(
     .slice(0, input.workers)
     .map(() => ({
       idea: input.taskDescription,
-      risk: 50,
-      temperature: 50,
+      risk: Math.round(20 + Math.random() * 60),         // 20-80
+      temperature: Math.round(30 + Math.random() * 50),   // 30-80
     }));
 
-  obs.broadcast({ type: "IDEATION_DONE", payload: { taskId, ideas } });
+  obs.broadcast({ type: "IDEATION_DONE", payload: { taskId, ideas, workerDescriptions: input.workerDescriptions.slice(0, input.workers) } });
   log.treemux("[task:" + taskId + "] Ideation done (synthetic), spawning " + ideas.length + " implementation(s)");
 
   // ── GitHub repo + branches + Vercel deployments ───────────────

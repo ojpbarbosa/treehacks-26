@@ -1,8 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { motion } from 'framer-motion'
-import { ExternalLink, Globe } from 'lucide-react'
+import { ExternalLink, Globe, AlertTriangle } from 'lucide-react'
 
 interface PreviewNodeProps {
   data: { url: string }
@@ -10,6 +11,7 @@ interface PreviewNodeProps {
 
 export default function PreviewNode({ data }: PreviewNodeProps) {
   const { url } = data
+  const [iframeError, setIframeError] = useState(false)
 
   return (
     <div className="relative">
@@ -35,21 +37,41 @@ export default function PreviewNode({ data }: PreviewNodeProps) {
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 text-[9px] font-mono text-text-muted hover:text-cream transition-colors"
+            className="nopan nodrag flex items-center gap-1 text-[9px] font-mono text-text-muted hover:text-cream transition-colors cursor-pointer"
           >
             Open <ExternalLink size={8} />
           </a>
         </div>
 
-        {/* Iframe preview */}
+        {/* Preview area */}
         <div className="w-[320px] h-[200px] bg-bg-dark relative">
-          <iframe
-            src={url}
-            title="Live preview"
-            className="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin"
-          />
-          <div className="absolute inset-0 pointer-events-none border border-primary/10 rounded-b-xl" />
+          {iframeError ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="nopan nodrag absolute inset-0 flex flex-col items-center justify-center gap-2 hover:bg-primary/5 transition-colors cursor-pointer"
+            >
+              <AlertTriangle size={18} className="text-amber-400/60" />
+              <span className="text-[10px] font-mono text-text-muted text-center px-4">
+                Preview blocked by site policy
+              </span>
+              <span className="text-[10px] font-mono text-primary flex items-center gap-1">
+                Open in new tab <ExternalLink size={9} />
+              </span>
+            </a>
+          ) : (
+            <>
+              <iframe
+                src={url}
+                title="Live preview"
+                className="w-full h-full border-0"
+                sandbox="allow-scripts allow-same-origin"
+                onError={() => setIframeError(true)}
+              />
+              <div className="absolute inset-0 pointer-events-none border border-primary/10 rounded-b-xl" />
+            </>
+          )}
         </div>
 
         {/* URL */}

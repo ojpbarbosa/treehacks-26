@@ -69,13 +69,30 @@ export interface Job {
   pitch?: string
 }
 
-export type TaskPhase = 'idle' | 'creating' | 'ideation' | 'building' | 'done' | 'error'
+export type TaskPhase = 'idle' | 'creating' | 'ideation' | 'building' | 'done' | 'evaluating' | 'error'
+
+export interface EvalProgress {
+  eventType: string
+  message: string
+  projectName?: string
+  judgeName?: string
+  score?: number
+}
+
+export interface EvalResults {
+  rankings: Array<{
+    projectName: string
+    compositeScore: number
+    overallScores: Record<string, number>
+  }>
+  summary: string
+}
 
 // ─── WS event shapes ────────────────────────────────────────────
 
 interface WsIdeationDone {
   type: 'IDEATION_DONE'
-  payload: { taskId: string; ideas: IdeationIdea[] }
+  payload: { taskId: string; ideas: IdeationIdea[]; workerDescriptions?: string[] }
 }
 interface WsJobStarted {
   type: 'JOB_STARTED'
@@ -120,10 +137,26 @@ interface WsAllDone {
     taskId: string; evaluator: EvaluatorSpec | null; builds: DeploymentResult[]
   }
 }
+interface WsEvalProgress {
+  type: 'EVAL_PROGRESS'
+  payload: {
+    taskId: string; eventType: string; message: string
+    projectName?: string; judgeName?: string; score?: number
+  }
+}
+interface WsEvalComplete {
+  type: 'EVAL_COMPLETE'
+  payload: {
+    taskId: string
+    rankings: Array<{ projectName: string; compositeScore: number; overallScores: Record<string, number> }>
+    summary: string
+  }
+}
 
 type WsEvent =
   | WsIdeationDone | WsJobStarted | WsJobStepLog | WsJobDone
   | WsJobError | WsJobPush | WsJobDeployment | WsAllDone
+  | WsEvalProgress | WsEvalComplete
 
 // ─── Hook ───────────────────────────────────────────────────────
 
@@ -133,7 +166,10 @@ export interface UseTaskStreamReturn {
   taskDescription: string
   ideas: IdeationIdea[]
   jobs: Job[]
+  workerDescriptions: string[]
   allDonePayload: { evaluator: EvaluatorSpec | null; builds: DeploymentResult[] } | null
+  evalProgress: EvalProgress[]
+  evalResults: EvalResults | null
   error: string | null
   createTask: (input: TaskInput) => Promise<void>
   reset: () => void
@@ -145,7 +181,10 @@ export function useTaskStream(): UseTaskStreamReturn {
   const [taskDescription, setTaskDescription] = useState('')
   const [ideas, setIdeas] = useState<IdeationIdea[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
+  const [workerDescriptions, setWorkerDescriptions] = useState<string[]>([])
   const [allDonePayload, setAllDonePayload] = useState<UseTaskStreamReturn['allDonePayload']>(null)
+  const [evalProgress, setEvalProgress] = useState<EvalProgress[]>([])
+  const [evalResults, setEvalResults] = useState<EvalResults | null>(null)
   const [error, setError] = useState<string | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
 
@@ -161,6 +200,9 @@ export function useTaskStream(): UseTaskStreamReturn {
     switch (msg.type) {
       case 'IDEATION_DONE': {
         setIdeas(msg.payload.ideas)
+        if (msg.payload.workerDescriptions) {
+          setWorkerDescriptions(msg.payload.workerDescriptions)
+        }
         setPhase('ideation')
         break
       }
@@ -233,6 +275,28 @@ export function useTaskStream(): UseTaskStreamReturn {
         setPhase('done')
         break
       }
+
+      case 'EVAL_PROGRESS': {
+        const p = msg.payload
+        setEvalProgress(prev => [...prev, {
+          eventType: p.eventType,
+          message: p.message,
+          projectName: p.projectName,
+          judgeName: p.judgeName,
+          score: p.score,
+        }])
+        setPhase('evaluating')
+        break
+      }
+
+      case 'EVAL_COMPLETE': {
+        setEvalResults({
+          rankings: msg.payload.rankings,
+          summary: msg.payload.summary,
+        })
+        setPhase('done')
+        break
+      }
     }
   }
 
@@ -275,7 +339,10 @@ export function useTaskStream(): UseTaskStreamReturn {
     setError(null)
     setIdeas([])
     setJobs([])
+    setWorkerDescriptions([])
     setAllDonePayload(null)
+    setEvalProgress([])
+    setEvalResults(null)
     setTaskDescription(input.taskDescription)
     earlyEventsRef.current.clear()
 
@@ -306,12 +373,15 @@ export function useTaskStream(): UseTaskStreamReturn {
     setTaskDescription('')
     setIdeas([])
     setJobs([])
+    setWorkerDescriptions([])
     setAllDonePayload(null)
+    setEvalProgress([])
+    setEvalResults(null)
     setError(null)
     earlyEventsRef.current.clear()
   }, [])
 
-  return { phase, taskId, taskDescription, ideas, jobs, allDonePayload, error, createTask, reset }
+  return { phase, taskId, taskDescription, ideas, jobs, workerDescriptions, allDonePayload, evalProgress, evalResults, error, createTask, reset }
 }
 
 // ─── Pure job update helper ─────────────────────────────────────
