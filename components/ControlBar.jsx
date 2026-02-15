@@ -1,3 +1,5 @@
+'use client'
+
 import { Play, Pause, SkipForward } from 'lucide-react'
 import { motion } from 'framer-motion'
 

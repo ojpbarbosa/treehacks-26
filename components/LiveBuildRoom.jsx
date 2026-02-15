@@ -1,7 +1,9 @@
+'use client'
+
 import { useState, useRef, useCallback } from 'react'
-import ControlBar from '../components/ControlBar'
-import TeamMonitor from '../components/TeamMonitor'
-import MobileTeamSwitcher from '../components/MobileTeamSwitcher'
+import ControlBar from './ControlBar'
+import TeamMonitor from './TeamMonitor'
+import MobileTeamSwitcher from './MobileTeamSwitcher'
 
 export default function LiveBuildRoom({ sim, onViewResults }) {
   const { simHour, isPlaying, speed, teams, play, pause, setSimSpeed, jumpToHour } = sim

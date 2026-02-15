@@ -1,3 +1,5 @@
+'use client'
+
 import { ChevronLeft, ChevronRight, Grid3x3 } from 'lucide-react'
 
 export default function MobileTeamSwitcher({ teams, activeIndex, onSelect, showGrid, onToggleGrid }) {
