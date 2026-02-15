@@ -48,7 +48,7 @@ export function createServer(state: ServerState) {
     try {
       body = (await req.json()) as ImplementationDone;
     } catch {
-      log.error("/api/internal//done invalid JSON");
+      log.error("/internal/done invalid JSON");
       return new Response("Invalid JSON", { status: 400 });
     }
     log.server("done " + body.jobId + " " + body.repoUrl + " success=" + body.success + " pitch=" + (body.pitch ?? ""));

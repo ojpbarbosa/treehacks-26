@@ -1,6 +1,6 @@
 """
-Epoch implementation – single file. Trigger endpoint + Sandbox that runs inlined runner via stdin.
-Uses templates/nextjs-base in the image so the sandbox starts from a ready Next.js app (saves time/tokens).
+Epoch implementation worker – single file. Trigger endpoint + Sandbox that runs inlined runner via stdin.
+Uses worker/templates/nextjs-base in the image so the sandbox starts from a ready Next.js app (saves time/tokens).
 """
 
 import json
@@ -11,9 +11,9 @@ from fastapi import Request, Response
 
 app = modal.App("epoch-implementation")
 
-# Repo root (parent of modal/) for adding templates into the image
-_REPO_ROOT = Path(__file__).resolve().parent.parent
-_TEMPLATE_DIR = _REPO_ROOT / "templates" / "nextjs-base"
+# Template lives next to this file: worker/templates/nextjs-base
+_WORKER_DIR = Path(__file__).resolve().parent
+_TEMPLATE_DIR = _WORKER_DIR / "templates" / "nextjs-base"
 
 # Inlined runner: JOB_IMPL_STARTED (with plan) + JOB_LOG (step with summary), commit+push per step.
 _RUN_IMPL_SOURCE = r'''

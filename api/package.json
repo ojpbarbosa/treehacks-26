@@ -1,6 +1,6 @@
 {
-  "name": "epoch",
-  "module": "index.ts",
+  "name": "@epoch/api",
+  "main": "src/index.ts",
   "type": "module",
   "devDependencies": {
     "@types/bun": "latest"

@@ -68,7 +68,7 @@ export async function createDeployment(options: {
       idOrUrl: deploymentId,
       withGitRepoInfo: "true",
     });
-    status = (statusResponse.status ?? statusResponse.readyState ?? status) as string;
+    status = (statusResponse.status ?? status) as string;
     if (statusResponse.url) url = statusResponse.url;
     log.vercel("Deployment status: " + status);
   }
