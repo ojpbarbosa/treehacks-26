@@ -252,6 +252,7 @@ def _post_callback(callback_base_url, path, body):
     timeout=1900,
 )
 def run_in_sandbox(
+    task_id: str,
     job_id: str,
     idea: str,
     worker_profile: str,
@@ -270,6 +271,7 @@ def run_in_sandbox(
 ) -> None:
     """Create a Sandbox and run the agent."""
     job_secret = modal.Secret.from_dict({
+        "TASK_ID": task_id,
         "JOB_ID": job_id,
         "IDEA": idea,
         "CALLBACK_BASE_URL": callback_base_url or "",
@@ -285,7 +287,7 @@ def run_in_sandbox(
         "OPENROUTER_API_KEY": openrouter_api_key or "",
     })
 
-    _log("creating Sandbox job_id=%s branch=%s model=%s" % (job_id, branch, model or "default"))
+    _log("creating Sandbox task_id=%s job_id=%s branch=%s model=%s" % (task_id, job_id, branch, model or "default"))
 
     sb = modal.Sandbox.create(
         app=app,
@@ -366,6 +368,7 @@ def run_in_sandbox(
         if not done_called:
             _log("agent did not call treemux-report done — sending failure callback")
             _post_callback(callback_base_url, "/v1.0/log/done", {
+                "taskId": task_id,
                 "jobId": job_id,
                 "repoUrl": repo_url or "",
                 "idea": idea,
@@ -395,6 +398,7 @@ async def trigger(request: Request):
             media_type="application/json",
         )
     run_in_sandbox.spawn(
+        task_id=body.get("task_id") or "",
         job_id=body.get("job_id") or "",
         idea=body.get("idea") or "",
         worker_profile=body.get("worker_profile") or "",

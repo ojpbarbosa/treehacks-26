@@ -9,7 +9,7 @@ Usage:
   treemux-report done
 
 Environment variables:
-  JOB_ID, CALLBACK_BASE_URL, BRANCH, REPO_URL, GITHUB_TOKEN,
+  TASK_ID, JOB_ID, CALLBACK_BASE_URL, BRANCH, REPO_URL, GITHUB_TOKEN,
   VERCEL_TOKEN, GIT_USER_NAME, GIT_USER_EMAIL
 """
 import argparse
@@ -98,6 +98,7 @@ def _git_commit_and_push(message):
         stderr = (e.stderr or b"").decode(errors="replace").strip()
         _log("git error: %s stderr=%s" % (e, stderr))
         _post("/v1.0/log/error", {
+            "taskId": _env("TASK_ID"),
             "jobId": _env("JOB_ID"),
             "error": "git push failed: %s" % e,
             "stderr": stderr,
@@ -147,7 +148,7 @@ def _trigger_vercel_deploy():
         if url and not url.startswith("http"):
             url = "https://" + url
         _log("Vercel deployment triggered: %s" % url)
-        _post("/v1.0/log/deployment", {"jobId": _env("JOB_ID"), "url": url})
+        _post("/v1.0/log/deployment", {"taskId": _env("TASK_ID"), "jobId": _env("JOB_ID"), "url": url})
     except Exception as e:
         _log("Vercel deploy trigger failed: %s" % e)
 
@@ -167,6 +168,7 @@ def cmd_start(args):
     _save_state(state)
 
     _post("/v1.0/log/start", {
+        "taskId": _env("TASK_ID"),
         "jobId": job_id,
         "idea": idea,
         "temperature": 50,
@@ -192,6 +194,7 @@ def cmd_step(args):
 
     # Callback
     _post("/v1.0/log/step", {
+        "taskId": _env("TASK_ID"),
         "jobId": job_id,
         "stepIndex": step_index,
         "totalSteps": total_steps,
@@ -201,6 +204,7 @@ def cmd_step(args):
 
     # Push notification
     _post("/v1.0/log/push", {
+        "taskId": _env("TASK_ID"),
         "jobId": job_id,
         "stepIndex": step_index,
         "branch": branch,
@@ -237,6 +241,7 @@ def cmd_done(args):
 
     # Done callback
     _post("/v1.0/log/done", {
+        "taskId": _env("TASK_ID"),
         "jobId": job_id,
         "repoUrl": repo_url or "",
         "idea": idea,

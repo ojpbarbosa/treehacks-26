@@ -1,6 +1,6 @@
 /**
  * Spawn implementation modules (Modal or mock).
- * Each job gets idea, risk, temperature, callback URL, repo URL, GitHub token.
+ * Each job carries a taskId that must be included in all callback payloads.
  */
 
 import type { ImplementationJob } from "./types.ts";
@@ -46,8 +46,8 @@ export async function runMockImplementation(
   job: ImplementationJob,
   _obs: ReturnType<typeof getObservabilityHandlers> | null = null,
 ): Promise<void> {
-  const { jobId, idea, risk, temperature, repoUrl, branch } = job;
-  log.spawn("mock implementation start " + jobId);
+  const { taskId, jobId, idea, risk, temperature, repoUrl, branch } = job;
+  log.spawn("mock implementation start " + jobId + " [task:" + taskId + "]");
 
   const planSteps = [
     "Installing dependencies",
@@ -58,6 +58,7 @@ export async function runMockImplementation(
   ];
 
   await postStart({
+    taskId,
     jobId,
     idea,
     temperature,
@@ -69,6 +70,7 @@ export async function runMockImplementation(
 
   for (let i = 0; i < planSteps.length; i++) {
     await postStep({
+      taskId,
       jobId,
       stepIndex: i,
       totalSteps: planSteps.length,
@@ -78,6 +80,7 @@ export async function runMockImplementation(
     await new Promise((r) => setTimeout(r, 500));
   }
   await postStep({
+    taskId,
     jobId,
     stepIndex: planSteps.length,
     totalSteps: planSteps.length,
@@ -86,6 +89,7 @@ export async function runMockImplementation(
   });
 
   await postDone({
+    taskId,
     jobId,
     repoUrl: repoUrl ?? "https://github.com/treemux/demo",
     idea,
@@ -110,12 +114,13 @@ export async function runModalImplementation(
     return runMockImplementation(job, _obs);
   }
 
-  log.spawn("triggering Modal implementation " + job.jobId);
+  log.spawn("triggering Modal implementation " + job.jobId + " [task:" + job.taskId + "]");
 
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      task_id: job.taskId,
       job_id: job.jobId,
       idea: job.idea,
       risk: job.risk,
@@ -139,6 +144,7 @@ export async function runModalImplementation(
   if (!res.ok) {
     log.error("Modal trigger failed " + res.status + " " + (await res.text()));
     await postDone({
+      taskId: job.taskId,
       jobId: job.jobId,
       repoUrl: job.repoUrl ?? "",
       pitch: "Implementation failed.",
@@ -147,5 +153,4 @@ export async function runModalImplementation(
       branch: job.branch,
     });
   }
-  // Modal runs async; worker calls /api/internal/start, /api/internal/step, /api/internal/done.
 }

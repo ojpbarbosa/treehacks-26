@@ -1,8 +1,8 @@
 /**
  * Treemux orchestrator server: WebSocket + HTTP callbacks for implementation modules.
- * POST /v1.0/task  — accepts TaskInput, kicks off the pipeline, returns { success }.
+ * POST /v1.0/task  — accepts TaskInput, kicks off the pipeline, returns { success, taskId }.
  * POST /v1.0/log/* — worker callbacks (start, step, error, push, deployment, done).
- * WS   /ws         — real-time broadcast to UI clients.
+ * WS   /ws?taskId=<id> — subscribe to real-time events for a specific task.
  */
 
 import type { TaskInput, ServerState, JobStartedPayload, JobStepLogPayload, JobDonePayload, JobErrorPayload, JobPushPayload, JobDeploymentPayload } from "./types.ts";
@@ -20,6 +20,7 @@ const state: ServerState = {
   jobsPerRepoUrl: new Map(),
   completedJobs: new Map(),
   evaluators: new Map(),
+  taskIds: new Map(),
   results: [],
   async onAllDone(payload) {
     log.treemux("All deployments done: " + payload.builds.length + " builds, evaluator=" + (payload.evaluator ? "yes" : "none"));
@@ -72,7 +73,7 @@ async function handleStart(req: Request): Promise<Response> {
     log.error("/v1.0/log/start invalid JSON");
     return new Response("Invalid JSON", { status: 400 });
   }
-  log.server("JOB_STARTED " + body.jobId + " totalSteps=" + body.totalSteps);
+  log.server("JOB_STARTED " + body.jobId + " [task:" + body.taskId + "] totalSteps=" + body.totalSteps);
   obs.broadcast({ type: "JOB_STARTED", payload: body });
   return new Response(JSON.stringify({ ok: true }), {
     headers: { "Content-Type": "application/json" },
@@ -141,7 +142,6 @@ async function handleDeployment(req: Request): Promise<Response> {
     return new Response("Invalid JSON", { status: 400 });
   }
   log.server("JOB_DEPLOYMENT " + body.jobId + " url=" + body.url);
-
   obs.broadcast({ type: "JOB_DEPLOYMENT", payload: body });
   return new Response(JSON.stringify({ ok: true }), {
     headers: { "Content-Type": "application/json" },
@@ -158,7 +158,7 @@ async function handleDone(req: Request): Promise<Response> {
     log.error("/v1.0/log/done invalid JSON");
     return new Response("Invalid JSON", { status: 400 });
   }
-  log.server("JOB_DONE " + body.jobId + " success=" + body.success);
+  log.server("JOB_DONE " + body.jobId + " [task:" + body.taskId + "] success=" + body.success);
   obs.broadcast({ type: "JOB_DONE", payload: body });
 
   state.results.push({ url: body.repoUrl, idea: body.idea ?? "", pitch: body.pitch ?? "", repoUrl: body.repoUrl });
@@ -171,11 +171,12 @@ async function handleDone(req: Request): Promise<Response> {
 
   if (repoCompletedJobs >= repoJobs) {
     log.server("all implementations done for " + body.repoUrl + ", firing evaluator webhook");
+    const taskId = body.taskId;
     const evaluator = state.evaluators.get(body.repoUrl) ?? null;
     const builds = state.results
       .filter((r) => r.repoUrl === body.repoUrl)
       .map((r) => ({ url: r.url, idea: r.idea, pitch: r.pitch }));
-    const allDonePayload = { evaluator, builds };
+    const allDonePayload = { taskId, evaluator, builds };
     obs.broadcast({ type: "ALL_DONE", payload: allDonePayload });
     await state.onAllDone?.(allDonePayload);
   }
@@ -186,12 +187,15 @@ async function handleDone(req: Request): Promise<Response> {
 }
 
 /* ── Boot server ─────────────────────────────────────────────── */
-const server = Bun.serve({
+interface WsData { taskId?: string }
+
+const server = Bun.serve<WsData>({
   port: PORT,
   fetch(req, server) {
     const u = new URL(req.url);
     if (u.pathname === "/ws") {
-      if (server.upgrade(req)) return;
+      const taskId = u.searchParams.get("taskId") ?? undefined;
+      if (server.upgrade(req, { data: { taskId } })) return;
       return new Response("Upgrade failed", { status: 426 });
     }
     if (u.pathname === "/v1.0/task") return handleTask(req);
@@ -205,13 +209,15 @@ const server = Bun.serve({
     return new Response("Not found", { status: 404 });
   },
   websocket: {
-    open(ws) { obs.wsOpen(ws); },
-    close(ws) { obs.wsClose(ws); },
+    open(ws) {
+      obs.subscribe(ws, ws.data?.taskId);
+    },
+    close(ws) { obs.unsubscribe(ws); },
     message(ws, msg) { obs.wsMessage(ws, msg); },
   },
 });
 
 log.server(
   "Listening on :" + server.port +
-  " — POST /v1.0/task, /v1.0/log/{start,step,error,push,deployment,done}, WS /ws"
+  " — POST /v1.0/task, /v1.0/log/{start,step,error,push,deployment,done}, WS /ws?taskId=<id>"
 );

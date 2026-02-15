@@ -1,23 +1,23 @@
 /**
  * Treemux – Task controller.
  * Receives TaskInput, orchestrates GitHub → Vercel → N × implementation spawn.
- * Returns { success: boolean } immediately; all progress is reported via webhooks / WS.
+ * Returns { success, taskId } immediately; all progress is reported via webhooks / WS.
  */
 
 import { customAlphabet } from "nanoid";
-import { CALLBACK_BASE_URL, EVALUATOR_WEBHOOK_URL } from "./config.ts";
+import { CALLBACK_BASE_URL } from "./config.ts";
 import type { TaskInput, IdeationIdea, ImplementationJob, ServerState } from "./types.ts";
 import type { ObservabilityHandlers } from "./observability.ts";
 import { createRepo, createBranch, parseRepoFullName } from "./github.ts";
-import { createDeployment, disableDeploymentProtection } from "./vercel.ts";
+import { createDeployment, disableDeploymentProtection, addProjectEnvVars } from "./vercel.ts";
 import { runMockImplementation, runModalImplementation } from "./implementation-spawn.ts";
 import { log } from "./logger.ts";
 
 const USE_MODAL = Boolean(process.env.MODAL_IMPLEMENTATION_WORKER_URL);
 
-const jobIdGenerator = customAlphabet("abcdefghijklmnopqrstuvwxyz", 21);
+const idGenerator = customAlphabet("abcdefghijklmnopqrstuvwxyz", 21);
 function generateId(): string {
-  return jobIdGenerator();
+  return idGenerator();
 }
 
 /**
@@ -28,11 +28,13 @@ export async function runTask(
   input: TaskInput,
   obs: ObservabilityHandlers,
   state: ServerState | null = null,
-): Promise<{ success: boolean }> {
-  log.treemux("Task: " + input.taskDescription);
-  log.treemux("Workers: " + input.workers);
-  log.treemux("Callback base: " + CALLBACK_BASE_URL);
-  log.treemux("Implementation: " + (USE_MODAL ? "Modal" : "mock"));
+): Promise<{ success: boolean; taskId: string }> {
+  const taskId = generateId();
+
+  log.treemux("[task:" + taskId + "] Task: " + input.taskDescription);
+  log.treemux("[task:" + taskId + "] Workers: " + input.workers);
+  log.treemux("[task:" + taskId + "] Callback base: " + CALLBACK_BASE_URL);
+  log.treemux("[task:" + taskId + "] Implementation: " + (USE_MODAL ? "Modal" : "mock"));
 
   // ── Synthetic ideation (pass task description directly to workers) ──
   const ideas: IdeationIdea[] = input.workerDescriptions
@@ -43,14 +45,15 @@ export async function runTask(
       temperature: 50,
     }));
 
-  obs.broadcast({ type: "IDEATION_DONE", payload: { ideas } });
-  log.treemux("Ideation done (synthetic), spawning " + ideas.length + " implementation(s)");
+  obs.broadcast({ type: "IDEATION_DONE", payload: { taskId, ideas } });
+  log.treemux("[task:" + taskId + "] Ideation done (synthetic), spawning " + ideas.length + " implementation(s)");
 
   // ── GitHub repo + branches + Vercel deployments ───────────────
   const jobs: ImplementationJob[] = [];
   const repo = await createRepo(`treemux-${generateId()}`);
   if (state) {
     state.jobsPerRepoUrl.set(repo.cloneUrl, input.workers);
+    state.taskIds.set(repo.cloneUrl, taskId);
     if (input.evaluator) {
       state.evaluators.set(repo.cloneUrl, input.evaluator);
     }
@@ -82,10 +85,20 @@ export async function runTask(
               const url = deploy.url || `https://${deploy.deploymentId}.vercel.app`;
 
               log.vercel("Deployment endpoint for " + jobId + " (branch " + branch + "): " + url);
-              obs.broadcast({ type: "JOB_DEPLOYMENT", payload: { jobId, url } });
+              obs.broadcast({ type: "JOB_DEPLOYMENT", payload: { taskId, jobId, url } });
               await disableDeploymentProtection(repoName).catch((e) =>
                 log.warn("Could not disable deployment protection: " + String(e))
               );
+              // Inject API keys so deployed apps can call AI services at runtime
+              const envVars: { key: string; value: string }[] = [];
+              if (process.env.ANTHROPIC_API_KEY) envVars.push({ key: "ANTHROPIC_API_KEY", value: process.env.ANTHROPIC_API_KEY });
+              if (process.env.OPENAI_API_KEY) envVars.push({ key: "OPENAI_API_KEY", value: process.env.OPENAI_API_KEY });
+              if (process.env.OPENROUTER_API_KEY) envVars.push({ key: "OPENROUTER_API_KEY", value: process.env.OPENROUTER_API_KEY });
+              if (envVars.length) {
+                await addProjectEnvVars(repoName, envVars).catch((e) =>
+                  log.warn("Could not add env vars: " + String(e))
+                );
+              }
             } catch (e) {
               log.warn("Vercel deploy failed for " + jobId + " " + String(e));
             }
@@ -97,6 +110,7 @@ export async function runTask(
     }
 
     jobs.push({
+      taskId,
       jobId,
       idea: idea.idea,
       risk: idea.risk,
@@ -126,6 +140,6 @@ export async function runTask(
     }
   }
 
-  log.treemux("All workers spawned (" + jobs.length + "), returning success");
-  return { success: true };
+  log.treemux("[task:" + taskId + "] All workers spawned (" + jobs.length + "), returning success");
+  return { success: true, taskId };
 }

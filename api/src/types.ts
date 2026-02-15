@@ -3,9 +3,10 @@
  * Task → N × Implementation (Modal + Claude Code CLI) → GitHub → Vercel
  *
  * All WebSocket messages use the unified wrapper: { type: string, payload: ... }
+ * Every payload carries a `taskId` so clients can subscribe to a specific channel.
  */
 
-/** Mocked input: task + workers (evaluator unused for now) */
+/** Input for POST /v1.0/task */
 export interface TaskInput {
   taskDescription: string;
   workers: number;
@@ -30,6 +31,8 @@ export interface IdeationIdea {
 
 /** Payload we send to implementation module (e.g. Modal). One branch per worker. */
 export interface ImplementationJob {
+  /** Parent task that spawned this job */
+  taskId: string;
   jobId: string;
   idea: string;
   risk: number;
@@ -69,11 +72,13 @@ export type WsEvent =
   | { type: "ALL_DONE"; payload: AllDonePayload };
 
 export interface IdeationDonePayload {
+  taskId: string;
   ideas: IdeationIdea[];
 }
 
 /** Sent when the sandbox starts — includes plan + context for the UI pipeline */
 export interface JobStartedPayload {
+  taskId: string;
   jobId: string;
   idea: string;
   temperature: number;
@@ -87,6 +92,7 @@ export interface JobStartedPayload {
 
 /** Per-step log — shown as a node/log-line in the pipeline UI */
 export interface JobStepLogPayload {
+  taskId: string;
   jobId: string;
   stepIndex: number;
   totalSteps: number;
@@ -97,6 +103,7 @@ export interface JobStepLogPayload {
 
 /** Job finished */
 export interface JobDonePayload {
+  taskId: string;
   jobId: string;
   repoUrl: string;
   /** The original idea given to the worker */
@@ -110,6 +117,7 @@ export interface JobDonePayload {
 
 /** Non-fatal error during job execution (e.g. git push failed) */
 export interface JobErrorPayload {
+  taskId: string;
   jobId: string;
   error: string;
   /** Raw stderr from the failed command */
@@ -120,6 +128,7 @@ export interface JobErrorPayload {
 
 /** Successful git push for a step */
 export interface JobPushPayload {
+  taskId: string;
   jobId: string;
   stepIndex: number;
   branch: string;
@@ -128,12 +137,14 @@ export interface JobPushPayload {
 
 /** Vercel deployment URL available */
 export interface JobDeploymentPayload {
+  taskId: string;
   jobId: string;
   url: string;
 }
 
 /** All jobs done → evaluator webhook fired */
 export interface AllDonePayload {
+  taskId: string;
   evaluator: EvaluatorSpec | null;
   builds: DeploymentResult[];
 }
@@ -158,6 +169,8 @@ export interface ServerState {
   completedJobs: Map<string, number>;
   /** Evaluator spec stored per repoUrl (set at task creation time) */
   evaluators: Map<string, EvaluatorSpec>;
+  /** taskId stored per repoUrl (set at task creation time) */
+  taskIds: Map<string, string>;
   /** Accumulated results (url + idea + pitch + repoUrl for grouping) */
   results: { url: string; idea: string; pitch: string; repoUrl: string }[];
   onAllDone?: OnAllDone;

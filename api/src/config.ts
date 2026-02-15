@@ -23,7 +23,7 @@ export const MOCK_INPUT: TaskInput = {
   evaluator: {
     count: 1,
     role: "judge",
-    criteria: ["clarity", "sellability", "conciseness"],
+    criteria: "clarity, sellability, conciseness",
   },
   model: process.env.MODEL || "sonnet", // valid model slug for Claude Code
 };
