@@ -1,0 +1,7 @@
+node_modules
+dist
+.worktrees
+.cache
+.DS_Store
+.env
+eval/test-runs
