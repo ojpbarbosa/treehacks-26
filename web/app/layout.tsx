@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 import DotGrid from '../components/DotGrid'
 import './globals.css'
+import { SpeedInsights } from '@vercel/speed-insights/next';
+import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
-  title: 'TreeHacks Simulator 2026',
-  description: '36 Hours. 6 Teams. Live Build.',
+  title: 'Treemux',
+  description: 'Treemux simulates AI teams from idea to deployment — generating products, pitches, and metrics in a sandbox.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -17,6 +19,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <DotGrid />
+        <SpeedInsights />
+        <Analytics />
         {children}
       </body>
     </html>

@@ -19,6 +19,11 @@ function generateId(): string {
   return jobIdGenerator();
 }
 
+const MAX_RISK = 100;
+const MIN_RISK = 50;
+const MAX_TEMPERATURE = 100;
+const MIN_TEMPERATURE = 50;
+
 /**
  * Run a single task end-to-end (fire-and-forget workers).
  * Resolves as soon as all workers have been spawned — results arrive via webhooks.
@@ -38,10 +43,10 @@ export async function runTask(
     .slice(0, input.workers)
     .map(() => ({
       idea: input.taskDescription,
-      risk: 50,
-      temperature: 50,
+      risk: Math.random() * (MAX_RISK - MIN_RISK) + MIN_RISK,
+      temperature: Math.random() * (MAX_TEMPERATURE - MIN_TEMPERATURE) + MIN_TEMPERATURE,
     }));
-
+  obs?.broadcast({ type: "IDEATION_DONE", payload: { taskId, ideas } });
   log.treemux("Ideation done (synthetic), spawning " + ideas.length + " implementation(s)");
 
   // ── GitHub repo + branches + Vercel deployments ───────────────

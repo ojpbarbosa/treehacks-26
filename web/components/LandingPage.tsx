@@ -148,9 +148,10 @@ function DashboardPreview() {
 
 interface LandingPageProps {
   onStart: () => void
+  onCreateTask?: () => void
 }
 
-export default function LandingPage({ onStart }: LandingPageProps) {
+export default function LandingPage({ onStart, onCreateTask }: LandingPageProps) {
   const [isHovered, setIsHovered] = useState(false)
 
   return (
@@ -189,22 +190,35 @@ export default function LandingPage({ onStart }: LandingPageProps) {
           </div>
 
           {/* CTA */}
-          <motion.button
-            onClick={onStart}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="group inline-flex items-center gap-3 px-7 py-3.5 bg-transparent border border-primary text-primary font-semibold text-sm rounded-lg hover:bg-primary hover:text-bg-dark transition-all duration-300 cursor-pointer"
-            style={{
-              boxShadow: isHovered
-                ? '0 0 30px rgba(3,141,57,0.3), 0 0 60px rgba(3,141,57,0.1)'
-                : '0 0 15px rgba(3,141,57,0.1)',
-            }}
-          >
-            <Play size={16} fill="currentColor" />
-            Watch Simulation
-          </motion.button>
+          <div className="flex flex-wrap gap-3">
+            <motion.button
+              onClick={onStart}
+              onMouseEnter={() => setIsHovered(true)}
+              onMouseLeave={() => setIsHovered(false)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="group inline-flex items-center gap-3 px-7 py-3.5 bg-transparent border border-primary text-primary font-semibold text-sm rounded-lg hover:bg-primary hover:text-bg-dark transition-all duration-300 cursor-pointer"
+              style={{
+                boxShadow: isHovered
+                  ? '0 0 30px rgba(3,141,57,0.3), 0 0 60px rgba(3,141,57,0.1)'
+                  : '0 0 15px rgba(3,141,57,0.1)',
+              }}
+            >
+              <Play size={16} fill="currentColor" />
+              Watch Simulation
+            </motion.button>
+
+            {onCreateTask && (
+              <motion.button
+                onClick={onCreateTask}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="group inline-flex items-center gap-3 px-7 py-3.5 bg-primary/10 border border-primary/30 text-primary font-semibold text-sm rounded-lg hover:bg-primary/20 hover:border-primary/50 transition-all duration-300 cursor-pointer"
+              >
+                Create Task
+              </motion.button>
+            )}
+          </div>
 
           {/* Footer */}
           <p className="text-[10px] text-text-muted font-mono mt-12">
