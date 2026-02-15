@@ -22,13 +22,29 @@ export interface ServerState {
 export function createServer(state: ServerState) {
   const obs = getObservabilityHandlers(PORT);
 
+  async function handleLog(req: Request): Promise<Response> {
+    if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
+    let body: { jobId: string; log: string };
+    try {
+      body = (await req.json()) as { jobId: string; log: string };
+    } catch {
+      log.error("/api/internal//log invalid JSON");
+      return new Response("Invalid JSON", { status: 400 });
+    }
+    log.server("log " + body.jobId + " " + body.log);
+    obs.broadcast({ type: "log", payload: body });
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   async function handleStep(req: Request): Promise<Response> {
     if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
     let body: StepUpdate;
     try {
       body = (await req.json()) as StepUpdate;
     } catch {
-      log.error("/internal/step invalid JSON");
+      log.error("/api/internal//step invalid JSON");
       return new Response("Invalid JSON", { status: 400 });
     }
     log.server("step " + body.jobId + " " + body.stepIndex + " " + body.step + (body.done ? " (done)" : ""));
@@ -44,7 +60,7 @@ export function createServer(state: ServerState) {
     try {
       body = (await req.json()) as ImplementationDone;
     } catch {
-      log.error("/internal/done invalid JSON");
+      log.error("/api/internal//done invalid JSON");
       return new Response("Invalid JSON", { status: 400 });
     }
     log.server("done " + body.jobId + " " + body.repoUrl + " success=" + body.success + " pitch=" + (body.pitch ?? ""));
@@ -96,8 +112,9 @@ export function createServer(state: ServerState) {
         if (server.upgrade(req)) return;
         return new Response("Upgrade failed", { status: 426 });
       }
-      if (u.pathname === "/internal/step") return handleStep(req);
-      if (u.pathname === "/internal/done") return handleDone(req);
+      if (u.pathname === "/api/internal//log") return handleLog(req);
+      if (u.pathname === "/api/internal//step") return handleStep(req);
+      if (u.pathname === "/api/internal//done") return handleDone(req);
       if (u.pathname === "/health") return new Response("ok");
       return new Response("Not found", { status: 404 });
     },
@@ -114,7 +131,7 @@ export function createServer(state: ServerState) {
     },
   });
 
-  log.server("Listening on " + server.port + " WS /ws, POST /internal/step, /internal/done");
+  log.server("Listening on " + server.port + " WS /ws, POST /api/internal//log, /api/internal//step, /api/internal//done");
   return { server, obs };
 }
 

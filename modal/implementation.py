@@ -11,16 +11,13 @@ from fastapi import Request, Response
 
 app = modal.App("epoch-implementation")
 
-# Inlined runner: reads env, runs Claude Agent, git push, callback. Run in Sandbox via: python -c "exec(compile(open(0).read(), '<stdin>', 'exec'))" < stdin
+# Inlined runner: reads env, runs Claude Agent, commit+push after every step, log to stdout + webhook.
 _RUN_IMPL_SOURCE = r'''
 import os
 import subprocess
 import json
 import urllib.request
 from pathlib import Path
-
-def _log(msg):
-    print("[implementation]", msg, flush=True)
 
 def _env(key, default=""):
     return (os.environ.get(key) or default).strip()
@@ -35,21 +32,50 @@ def main():
     risk = int(_env("RISK", "50"))
     temperature = int(_env("TEMPERATURE", "50"))
     worker_profile = _env("WORKER_PROFILE")
-    _log("run_impl started job_id=%s branch=%s" % (job_id, branch))
     work_dir = Path("/out")
     work_dir.mkdir(parents=True, exist_ok=True)
     os.chdir(work_dir)
     base = callback_base_url.rstrip("/") if callback_base_url else ""
     if not base or not (base.startswith("http://") or base.startswith("https://")):
-        _log("invalid or missing CALLBACK_BASE_URL; callbacks skipped")
-    def post_step(step, step_index, done):
-        if not base:
+        base = ""
+    push_url = None
+    if repo_url and github_token:
+        push_url = repo_url.replace("https://", "https://x-access-token:%s@" % github_token)
+        try:
+            subprocess.run(["git", "config", "user.email", "epoch@epoch.local"], cwd=work_dir, check=True, capture_output=True)
+            subprocess.run(["git", "config", "user.name", "Epoch"], cwd=work_dir, check=True, capture_output=True)
+            subprocess.run(["git", "init"], cwd=work_dir, check=True, capture_output=True)
+            subprocess.run(["git", "branch", "-M", branch], cwd=work_dir, check=True, capture_output=True)
+            subprocess.run(["git", "remote", "add", "origin", push_url], cwd=work_dir, check=True, capture_output=True)
+        except subprocess.CalledProcessError:
+            push_url = None
+    def _log(msg):
+        print("[implementation]", msg, flush=True)
+        if base:
+            try:
+                req = urllib.request.Request(base + "/api/internal/log", data=json.dumps({"jobId": job_id, "log": msg}).encode(), headers={"Content-Type": "application/json"}, method="POST")
+                urllib.request.urlopen(req, timeout=5)
+            except Exception:
+                pass
+    def commit_and_push(step_index, step_msg):
+        if not push_url:
             return
         try:
-            req = urllib.request.Request(base + "/internal/step", data=json.dumps({"jobId": job_id, "step": step, "stepIndex": step_index, "done": done, "message": step}).encode(), headers={"Content-Type": "application/json"}, method="POST")
-            urllib.request.urlopen(req, timeout=10)
-        except Exception as e:
-            _log("step callback error: %s" % e)
+            subprocess.run(["git", "add", "-A"], cwd=work_dir, check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "Step %s: %s" % (step_index, step_msg[:72]), "--allow-empty"], cwd=work_dir, check=True, capture_output=True)
+            subprocess.run(["git", "push", "-u", "origin", branch], cwd=work_dir, check=True, capture_output=True, timeout=120)
+            _log("pushed step %s" % step_index)
+        except subprocess.CalledProcessError as e:
+            _log("git push step %s failed: %s" % (step_index, e))
+    _log("run_impl started job_id=%s branch=%s" % (job_id, branch))
+    def post_step(step, step_index, done):
+        if base:
+            try:
+                req = urllib.request.Request(base + "/api/internal/step", data=json.dumps({"jobId": job_id, "step": step, "stepIndex": step_index, "done": done, "message": step}).encode(), headers={"Content-Type": "application/json"}, method="POST")
+                urllib.request.urlopen(req, timeout=10)
+            except Exception as e:
+                _log("step callback error: %s" % e)
+        commit_and_push(step_index, step)
     import anyio
     from claude_agent_sdk import ClaudeAgentOptions, query, AssistantMessage, TextBlock, ResultMessage
     system_prompt = "You are an expert developer. Implement this as a Next.js app in the current directory. First output a short numbered plan (3-6 steps), then execute each step. Use only Read, Write, Edit, Bash, Glob. Create app with: npx create-next-app@latest . --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --use-npm. Idea: %s. Worker profile: %s. Risk: %s, Temperature: %s. Keep minimal but functional." % (idea, worker_profile, risk, temperature)
@@ -67,24 +93,9 @@ def main():
     anyio.run(run_agent)
     _log("agent run finished")
     pitch = "Built with Epoch: %s..." % idea[:120]
-    if repo_url and github_token:
-        try:
-            push_url = repo_url.replace("https://", "https://x-access-token:%s@" % github_token)
-            subprocess.run(["git", "config", "user.email", "epoch@epoch.local"], cwd=work_dir, check=True, capture_output=True)
-            subprocess.run(["git", "config", "user.name", "Epoch"], cwd=work_dir, check=True, capture_output=True)
-            subprocess.run(["git", "init"], cwd=work_dir, check=True, capture_output=True)
-            subprocess.run(["git", "add", "-A"], cwd=work_dir, check=True, capture_output=True)
-            subprocess.run(["git", "commit", "-m", "Epoch implementation", "--allow-empty"], cwd=work_dir, check=True, capture_output=True)
-            subprocess.run(["git", "branch", "-M", branch], cwd=work_dir, check=True, capture_output=True)
-            subprocess.run(["git", "remote", "add", "origin", push_url], cwd=work_dir, check=True, capture_output=True)
-            subprocess.run(["git", "push", "-u", "origin", branch], cwd=work_dir, check=True, capture_output=True, timeout=120)
-            _log("git push OK")
-        except subprocess.CalledProcessError as e:
-            _log("git failed: %s" % e)
-            repo_url = ""
     if base:
         try:
-            req = urllib.request.Request(base + "/internal/done", data=json.dumps({"jobId": job_id, "repoUrl": repo_url or "", "pitch": pitch, "success": bool(repo_url or not github_token), "error": None, "branch": branch}).encode(), headers={"Content-Type": "application/json"}, method="POST")
+            req = urllib.request.Request(base + "/api/internal/done", data=json.dumps({"jobId": job_id, "repoUrl": repo_url or "", "pitch": pitch, "success": bool(repo_url or not github_token), "error": None, "branch": branch}).encode(), headers={"Content-Type": "application/json"}, method="POST")
             urllib.request.urlopen(req, timeout=15)
         except Exception as e:
             _log("done callback error: %s" % e)

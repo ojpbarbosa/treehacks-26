@@ -13,7 +13,13 @@ export type WsMessage =
   | { type: "step"; payload: StepUpdate }
   | { type: "done"; payload: ImplementationDone }
   | { type: "deployment"; jobId: string; url: string }
-  | { type: "all_done"; results: { url: string; pitch: string }[] };
+  | { type: "all_done"; results: { url: string; pitch: string }[] }
+  | {
+    type: "log"; payload: {
+      jobId: string;
+      log: string;
+    }
+  };
 
 type WsLike = { send(data: string | BufferSource): number | void };
 
@@ -42,7 +48,7 @@ export function getObservabilityHandlers(_port: number) {
       wsClients.delete(ws);
       log.obs("WS client disconnected, total " + wsClients.size);
     },
-    wsMessage(_ws: WsLike, _message: string | Buffer) {},
+    wsMessage(_ws: WsLike, _message: string | Buffer) { },
     broadcast,
   };
 }

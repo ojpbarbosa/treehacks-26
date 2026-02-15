@@ -10,7 +10,7 @@ import { log } from "./logger.ts";
 const CALLBACK_BASE = process.env.CALLBACK_BASE_URL ?? "http://localhost:3001";
 
 async function postStep(jobId: string, step: string, stepIndex: number, done: boolean) {
-  const url = `${CALLBACK_BASE}/internal/step`;
+  const url = `${CALLBACK_BASE}/api/internal//step`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -27,7 +27,7 @@ async function postDone(
   error?: string,
   branch?: string
 ) {
-  const url = `${CALLBACK_BASE}/internal/done`;
+  const url = `${CALLBACK_BASE}/api/internal//done`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -109,5 +109,5 @@ export async function runModalImplementation(
     log.error("Modal trigger failed " + res.status + " " + (await res.text()));
     await postDone(job.jobId, job.repoUrl ?? "", "Implementation failed.", false, "Modal request failed");
   }
-  // Modal runs async; it will call /internal/step and /internal/done when done.
+  // Modal runs async; it will call /api/internal//step and /api/internal//done when done.
 }
