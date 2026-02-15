@@ -1,6 +1,8 @@
-import { motion } from 'framer-motion'
-import { Trophy, Award, Star, BarChart3 } from 'lucide-react'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Trophy, Award, Star, BarChart3, ChevronDown } from 'lucide-react'
 import { calculateFinalScores } from '../data/teams'
+import { generateCommentary } from '../data/commentary'
 
 const AWARD_ICONS = [Trophy, Award, Star]
 const AWARD_COLORS = ['text-yellow-400', 'text-gray-300', 'text-amber-600']
@@ -17,6 +19,9 @@ export default function JudgesScreen({ teams, onRestart, onBackToReplay }) {
   const ranked = calculateFinalScores(teams)
   const topThree = ranked.slice(0, 3)
   const rest = ranked.slice(3, 6)
+  const [deepDiveOpen, setDeepDiveOpen] = useState(false)
+
+  const commentary = generateCommentary(ranked)
 
   return (
     <div className="min-h-screen relative z-10 flex flex-col">
@@ -100,6 +105,112 @@ export default function JudgesScreen({ teams, onRestart, onBackToReplay }) {
           )
         })}
       </div>
+
+      {/* Judges' Verdict */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.3 }}
+        className="max-w-3xl mx-auto px-6 mb-12 w-full"
+      >
+        <h2 className="text-sm font-mono text-text-muted uppercase tracking-wider mb-6">Judges' Verdict</h2>
+
+        {/* Executive Summary */}
+        <div className="mb-8 space-y-3">
+          {commentary.summary.map((line, i) => (
+            <p key={i} className="text-sm text-text-secondary leading-relaxed">{line}</p>
+          ))}
+        </div>
+
+        {/* Deep Dive toggle */}
+        <button
+          onClick={() => setDeepDiveOpen(prev => !prev)}
+          className="flex items-center gap-2 text-xs font-mono text-text-muted uppercase tracking-wider hover:text-cream transition-colors cursor-pointer mb-4 group"
+        >
+          <span>Deep Dive Analysis</span>
+          <motion.div
+            animate={{ rotate: deepDiveOpen ? 180 : 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ChevronDown size={14} className="text-text-muted group-hover:text-cream transition-colors" />
+          </motion.div>
+        </button>
+
+        {/* Deep Dive Content */}
+        <AnimatePresence>
+          {deepDiveOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              <div className="space-y-8 pb-4">
+                {commentary.teamAnalyses.map((analysis, i) => (
+                  <div key={analysis.name}>
+                    {/* Team header */}
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className={`text-xs font-mono uppercase tracking-wider ${AWARD_COLORS[i]}`}>
+                        {AWARD_LABELS[i]}
+                      </span>
+                      <span className="text-border-green">—</span>
+                      <span className="text-sm font-semibold text-cream">{analysis.name}</span>
+                      <span className="text-xs text-text-muted">{analysis.title}</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                      {/* Strengths */}
+                      <div>
+                        <h4 className="text-[10px] font-mono text-primary uppercase tracking-wider mb-2">Strengths</h4>
+                        <ul className="space-y-1.5">
+                          {analysis.strengths.map((s, j) => (
+                            <li key={j} className="text-xs text-text-secondary leading-snug flex gap-1.5">
+                              <span className="text-primary/50 shrink-0 mt-px">•</span>
+                              <span>{s}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Weaknesses */}
+                      <div>
+                        <h4 className="text-[10px] font-mono text-amber-400/70 uppercase tracking-wider mb-2">Weaknesses</h4>
+                        <ul className="space-y-1.5">
+                          {analysis.weaknesses.map((w, j) => (
+                            <li key={j} className="text-xs text-text-secondary leading-snug flex gap-1.5">
+                              <span className="text-amber-500/40 shrink-0 mt-px">•</span>
+                              <span>{w}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Strategic Tradeoffs */}
+                      <div>
+                        <h4 className="text-[10px] font-mono text-text-muted uppercase tracking-wider mb-2">Tradeoffs</h4>
+                        <ul className="space-y-1.5">
+                          {analysis.tradeoffs.map((t, j) => (
+                            <li key={j} className="text-xs text-text-secondary leading-snug flex gap-1.5">
+                              <span className="text-text-muted shrink-0 mt-px">•</span>
+                              <span>{t}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Separator between teams (not after last) */}
+                    {i < commentary.teamAnalyses.length - 1 && (
+                      <div className="border-b border-border-green/20 mt-8" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
 
       {/* Remaining teams */}
       <motion.div
