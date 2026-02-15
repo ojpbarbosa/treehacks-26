@@ -285,7 +285,10 @@ export function useTaskStream(): UseTaskStreamReturn {
           judgeName: p.judgeName,
           score: p.score,
         }])
-        setPhase('evaluating')
+        // Only transition to 'evaluating' for non-error progress events
+        if (p.eventType !== 'error') {
+          setPhase('evaluating')
+        }
         break
       }
 

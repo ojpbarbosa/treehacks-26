@@ -29,7 +29,7 @@ export const MOCK_INPUT: TaskInput = {
 };
 
 /** Base URL for implementation callbacks (steps/done). Must be reachable from Modal (e.g. ngrok in dev). */
-export const CALLBACK_BASE_URL = process.env.CALLBACK_BASE_URL ?? "http://localhost:3001";
+export const CALLBACK_BASE_URL = process.env.CALLBACK_BASE_URL ?? `http://localhost:${process.env.PORT ?? "3000"}`;
 
 /** Webhook URL to POST final [{ url, pitch }] when all deployments are done (legacy) */
 export const WEBHOOK_URL = process.env.WEBHOOK_URL ?? "";

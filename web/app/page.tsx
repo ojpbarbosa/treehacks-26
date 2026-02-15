@@ -8,7 +8,7 @@ export default function Home() {
 
   return (
     <LandingPage
-      onStart={() => router.push('/live')}
+      onStart={() => router.push('/create')}
       onCreateTask={() => router.push('/create')}
     />
   )

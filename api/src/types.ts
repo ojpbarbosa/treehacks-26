@@ -195,6 +195,8 @@ export interface ServerState {
   evaluators: Map<string, EvaluatorSpec>;
   /** taskId stored per repoUrl (set at task creation time) */
   taskIds: Map<string, string>;
+  /** Vercel deployment URLs per jobId (set when JOB_DEPLOYMENT arrives) */
+  deploymentUrls: Map<string, string>;
   /** Accumulated results (url + idea + pitch + repoUrl for grouping) */
   results: { url: string; idea: string; pitch: string; repoUrl: string }[];
   onAllDone?: OnAllDone;

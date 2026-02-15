@@ -137,7 +137,7 @@ def main():
                 "!.env.example\n"
             )
 
-    # Write vercel.json — allow iframe embedding & override X-Frame-Options
+    # Write vercel.json — allow iframe embedding by removing restrictive headers
     vercel_json_path = os.path.join("/workspace", "vercel.json")
     if not os.path.exists(vercel_json_path):
         with open(vercel_json_path, "w") as f:
@@ -146,8 +146,8 @@ def main():
                     {
                         "source": "/(.*)",
                         "headers": [
-                            {"key": "X-Frame-Options", "value": "SAMEORIGIN"},
                             {"key": "Content-Security-Policy", "value": "frame-ancestors *"},
+                            {"key": "X-Frame-Options", "value": ""},
                         ],
                     }
                 ]

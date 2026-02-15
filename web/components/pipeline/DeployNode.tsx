@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { motion } from 'framer-motion'
-import { ExternalLink, Globe, AlertTriangle } from 'lucide-react'
+import { ExternalLink, Globe, Image as ImageIcon } from 'lucide-react'
 
 interface DeployNodeProps {
   data: { url: string; index: number }
@@ -11,7 +11,16 @@ interface DeployNodeProps {
 
 export default function DeployNode({ data }: DeployNodeProps) {
   const { url, index } = data
-  const [iframeError, setIframeError] = useState(false)
+  const [imgError, setImgError] = useState(false)
+
+  // Screenshot thumbnail via microlink
+  const screenshotUrl = `https://api.microlink.io/?url=${encodeURIComponent(url)}&screenshot=true&meta=false&embed=screenshot.url`
+
+  const openUrl = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }, [url])
 
   return (
     <div className="relative">
@@ -34,59 +43,43 @@ export default function DeployNode({ data }: DeployNodeProps) {
               Live Preview
             </span>
           </div>
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="nopan nodrag flex items-center gap-1 text-[8px] font-mono text-text-muted hover:text-cream transition-colors cursor-pointer"
+          <button
+            onClick={openUrl}
+            className="nopan nodrag nowheel flex items-center gap-1 text-[8px] font-mono text-text-muted hover:text-cream transition-colors cursor-pointer bg-transparent border-none outline-none"
           >
             Open <ExternalLink size={8} />
-          </a>
+          </button>
         </div>
 
-        {/* Preview area */}
-        <div className="w-[280px] h-[170px] bg-bg-dark relative">
-          {iframeError ? (
-            /* Fallback when iframe is blocked by X-Frame-Options */
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="nopan nodrag absolute inset-0 flex flex-col items-center justify-center gap-2 hover:bg-primary/5 transition-colors cursor-pointer"
-            >
-              <AlertTriangle size={16} className="text-amber-400/60" />
-              <span className="text-[9px] font-mono text-text-muted text-center px-4">
-                Preview blocked by site policy
-              </span>
-              <span className="text-[9px] font-mono text-primary flex items-center gap-1">
-                Open in new tab <ExternalLink size={8} />
-              </span>
-            </a>
+        {/* Preview — screenshot thumbnail, entire area is clickable */}
+        <button
+          onClick={openUrl}
+          className="nopan nodrag nowheel w-[280px] h-[170px] bg-bg-dark relative overflow-hidden cursor-pointer border-none outline-none block"
+        >
+          {!imgError ? (
+            <img
+              src={screenshotUrl}
+              alt="Site preview"
+              className="w-full h-full object-cover object-top"
+              onError={() => setImgError(true)}
+              loading="lazy"
+            />
           ) : (
-            <>
-              <iframe
-                src={url}
-                title="Live preview"
-                className="w-full h-full border-0"
-                sandbox="allow-scripts allow-same-origin"
-                onError={() => setIframeError(true)}
-                onLoad={(e) => {
-                  // Detect X-Frame-Options block: if the iframe loaded but has no content
-                  // we can't reliably detect this cross-origin, so we just show the iframe.
-                  // The onError handler catches network-level failures.
-                  try {
-                    const frame = e.currentTarget
-                    // If contentDocument is null (cross-origin), that's expected and fine
-                    if (frame.contentDocument === null) return
-                  } catch {
-                    // Cross-origin access error — expected, iframe is working
-                  }
-                }}
-              />
-              <div className="absolute inset-0 pointer-events-none border border-primary/10" />
-            </>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+              <ImageIcon size={20} className="text-text-muted/30" />
+              <span className="text-[9px] font-mono text-text-muted/50">
+                Click to open preview
+              </span>
+            </div>
           )}
-        </div>
+          {/* Hover overlay */}
+          <div className="absolute inset-0 bg-primary/0 hover:bg-primary/5 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
+            <span className="text-[9px] font-mono text-primary flex items-center gap-1 bg-bg-dark/80 px-3 py-1.5 rounded-full border border-primary/30">
+              Open <ExternalLink size={8} />
+            </span>
+          </div>
+          <div className="absolute inset-0 pointer-events-none border border-primary/10" />
+        </button>
 
         {/* URL */}
         <div className="px-3 py-1.5 border-t border-border-green/20">

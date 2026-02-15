@@ -5,9 +5,10 @@
 
 import type { ImplementationJob } from "./types.ts";
 import { getObservabilityHandlers } from "./observability.ts";
+import { CALLBACK_BASE_URL } from "./config.ts";
 import { log } from "./logger.ts";
 
-const CALLBACK_BASE = process.env.CALLBACK_BASE_URL ?? "http://localhost:3000";
+const CALLBACK_BASE = CALLBACK_BASE_URL;
 
 async function postStart(payload: Record<string, unknown>) {
   const url = `${CALLBACK_BASE}/v1.0/log/start`;
@@ -147,6 +148,7 @@ export async function runModalImplementation(
       taskId: job.taskId,
       jobId: job.jobId,
       repoUrl: job.repoUrl ?? "",
+      idea: job.idea,
       pitch: "Implementation failed.",
       success: false,
       error: "Modal request failed",

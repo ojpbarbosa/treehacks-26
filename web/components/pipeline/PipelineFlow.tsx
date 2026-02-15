@@ -240,7 +240,7 @@ function PipelineFlowInner(props: PipelineState) {
   useEffect(() => {
     if (nodes.length !== prevNodeCount.current) {
       prevNodeCount.current = nodes.length
-      const t = setTimeout(() => fitView({ padding: 0.4, duration: 400 }), 80)
+      const t = setTimeout(() => fitView({ padding: 0.25, duration: 400 }), 80)
       return () => clearTimeout(t)
     }
   }, [nodes.length, fitView])
@@ -251,10 +251,10 @@ function PipelineFlowInner(props: PipelineState) {
       edges={edges}
       nodeTypes={nodeTypes}
       fitView
-      fitViewOptions={{ padding: 0.4 }}
-      minZoom={0.1}
-      maxZoom={1.2}
-      defaultViewport={{ x: 0, y: 0, zoom: 0.6 }}
+      fitViewOptions={{ padding: 0.25 }}
+      minZoom={0.2}
+      maxZoom={1.5}
+      defaultViewport={{ x: 0, y: 0, zoom: 0.85 }}
       proOptions={{ hideAttribution: true }}
       nodesDraggable={false}
       nodesConnectable={false}

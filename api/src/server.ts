@@ -37,6 +37,7 @@ const state: ServerState = {
   completedJobs: new Map(),
   evaluators: new Map(),
   taskIds: new Map(),
+  deploymentUrls: new Map(),
   results: [],
   async onAllDone(payload) {
     log.treemux("All deployments done: " + payload.builds.length + " builds, evaluator=" + (payload.evaluator ? "yes" : "none"));
@@ -74,7 +75,10 @@ async function handleTask(req: Request): Promise<Response> {
     return corsJson({ success: false, error: "taskDescription and workers are required" }, 400);
   }
   const taskId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 21)();
-  runTask(taskId, body, obs, state)
+  runTask(taskId, body, obs, state).catch((e) => {
+    log.error("[task:" + taskId + "] runTask error: " + String(e));
+    obs.broadcast({ type: "JOB_ERROR", payload: { taskId, jobId: "orchestrator", error: String(e), phase: "task_init" } });
+  });
   return corsJson({ taskId });
 }
 
@@ -149,6 +153,7 @@ async function handleDeployment(req: Request): Promise<Response> {
     return corsJson({ error: "Invalid JSON" }, 400);
   }
   log.server("JOB_DEPLOYMENT " + body.jobId + " url=" + body.url);
+  state.deploymentUrls.set(body.jobId, body.url);
   obs.broadcast({ type: "JOB_DEPLOYMENT", payload: body });
   return corsJson({ ok: true });
 }
@@ -166,7 +171,9 @@ async function handleDone(req: Request): Promise<Response> {
   log.server("JOB_DONE " + body.jobId + " [task:" + body.taskId + "] success=" + body.success);
   obs.broadcast({ type: "JOB_DONE", payload: body });
 
-  state.results.push({ url: body.repoUrl, idea: body.idea ?? "", pitch: body.pitch ?? "", repoUrl: body.repoUrl });
+  // Use the Vercel deployment URL if available, fall back to repo URL
+  const deployUrl = state.deploymentUrls.get(body.jobId) ?? body.repoUrl;
+  state.results.push({ url: deployUrl, idea: body.idea ?? "", pitch: body.pitch ?? "", repoUrl: body.repoUrl });
 
   state.completedJobs.set(body.repoUrl, (state.completedJobs.get(body.repoUrl) ?? 0) + 1);
 

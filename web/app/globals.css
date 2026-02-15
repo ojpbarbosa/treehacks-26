@@ -48,9 +48,17 @@
   }
 }
 
-/* React Flow: clickable elements inside nodes override grab */
+/* React Flow: clickable elements inside nodes */
 .react-flow__node .nopan {
   cursor: pointer !important;
+  pointer-events: all !important;
+}
+
+/* Ensure buttons inside nodes get pointer events */
+.react-flow__node button.nopan,
+.react-flow__node a.nopan {
+  position: relative;
+  z-index: 10;
 }
 
 /* Lighter green tone for the flow canvas area */
